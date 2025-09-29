@@ -1,0 +1,565 @@
+package relayer
+
+import (
+	"context"
+	"crypto/ecdsa"
+	"encoding/hex"
+	"fmt"
+	"math/big"
+	"sync"
+	"time"
+
+	"kelo-backend/pkg/blockchain"
+	"kelo-backend/pkg/config"
+	"kelo-backend/pkg/logger"
+
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/rs/zerolog/log"
+)
+
+// MessageType represents the type of cross-chain message
+type MessageType int
+
+const (
+	MessageTypeLoanApproval MessageType = iota
+	MessageTypeLoanDisbursement
+	MessageTypeRepaymentConfirmation
+	MessageTypeLiquidityTransfer
+	MessageTypeCreditScoreUpdate
+)
+
+// String returns the string representation of MessageType
+func (mt MessageType) String() string {
+	return [...]string{
+		"LOAN_APPROVAL",
+		"LOAN_DISBURSEMENT",
+		"REPAYMENT_CONFIRMATION",
+		"LIQUIDITY_TRANSFER",
+		"CREDIT_SCORE_UPDATE",
+	}[mt]
+}
+
+// Message represents a cross-chain message
+type Message struct {
+	Type        MessageType      `json:"type"`
+	ChainID     string          `json:"chain_id"`
+	Payload     []byte          `json:"payload"`
+	Signature   []byte          `json:"signature"`
+	Timestamp   time.Time       `json:"timestamp"`
+	RetryCount  int             `json:"retry_count"`
+	Status      MessageStatus   `json:"status"`
+}
+
+// MessageStatus represents the status of a message
+type MessageStatus int
+
+const (
+	StatusPending MessageStatus = iota
+	StatusSent
+	StatusConfirmed
+	StatusFailed
+	StatusRetrying
+)
+
+// String returns the string representation of MessageStatus
+func (ms MessageStatus) String() string {
+	return [...]string{
+		"PENDING",
+		"SENT",
+		"CONFIRMED",
+		"FAILED",
+		"RETRYING",
+	}[ms]
+}
+
+// LoanApprovalEvent represents a loan approval event from Hedera
+type LoanApprovalEvent struct {
+	TokenID       *big.Int
+	Borrower      common.Address
+	Merchant      common.Address
+	Amount        *big.Int
+	InterestRate  *big.Int
+	Duration      *big.Int
+	BorrowerDID   string
+	MerchantDID   string
+	Timestamp     time.Time
+}
+
+// LoanDisbursementEvent represents a loan disbursement event from Hedera
+type LoanDisbursementEvent struct {
+	TokenID   *big.Int
+	Amount    *big.Int
+	Merchant  common.Address
+	Timestamp time.Time
+}
+
+// RepaymentEvent represents a repayment event from Hedera
+type RepaymentEvent struct {
+	TokenID      *big.Int
+	Amount       *big.Int
+	TotalRepaid  *big.Int
+	Payer        common.Address
+	Timestamp    time.Time
+}
+
+// TrustedRelayer is the main service that acts as a trusted relayer
+type TrustedRelayer struct {
+	config          *config.Config
+	blockchain      *blockchain.Clients
+	privateKey      *ecdsa.PrivateKey
+	publicAddress   common.Address
+	
+	// Event listeners
+	hederaListener  *HederaEventListener
+	
+	// Message processing
+	messageQueue    chan *Message
+	processing      sync.WaitGroup
+	messageStore    map[string]*Message
+	storeMutex      sync.RWMutex
+	
+	// LayerZero integration
+	layerZeroClient *LayerZeroClient
+	
+	// Chain configurations
+	chainConfigs    map[string]*ChainConfig
+	
+	// Context and cancellation
+	ctx            context.Context
+	cancel         context.CancelFunc
+	
+	// Metrics
+	metrics        *RelayerMetrics
+}
+
+// ChainConfig holds configuration for each blockchain chain
+type ChainConfig struct {
+	ChainID          string          `json:"chain_id"`
+	Name             string          `json:"name"`
+	RPCURL           string          `json:"rpc_url"`
+	ContractAddress  common.Address  `json:"contract_address"`
+	GasLimit         uint64          `json:"gas_limit"`
+	GasPrice         *big.Int        `json:"gas_price"`
+	Confirmations    uint64          `json:"confirmations"`
+	Enabled          bool            `json:"enabled"`
+}
+
+// RelayerMetrics tracks relayer performance metrics
+type RelayerMetrics struct {
+	MessagesProcessed    uint64        `json:"messages_processed"`
+	MessagesSent         uint64        `json:"messages_sent"`
+	MessagesConfirmed    uint64        `json:"messages_confirmed"`
+	MessagesFailed       uint64        `json:"messages_failed"`
+	AverageLatency       time.Duration `json:"average_latency"`
+	LastProcessedTime    time.Time     `json:"last_processed_time"`
+}
+
+// HederaEventListener listens for events on Hedera
+type HederaEventListener struct {
+	client         *blockchain.HederaClient
+	contractAddr   common.Address
+	eventTopics    map[string]common.Hash
+	quitChan       chan struct{}
+}
+
+// LayerZeroClient handles LayerZero message sending
+type LayerZeroClient struct {
+	endpoint      string
+	apiKey        string
+	clients       map[string]*ethclient.Client
+	auth          *bind.TransactOpts
+}
+
+// NewTrustedRelayer creates a new trusted relayer service
+func NewTrustedRelayer(cfg *config.Config, bc *blockchain.Clients) (*TrustedRelayer, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	
+	// Parse private key
+	privateKey, err := crypto.HexToECDSA(cfg.RelayerPrivateKey)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed to parse private key: %w", err)
+	}
+	
+	publicAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
+	
+	// Initialize chain configurations
+	chainConfigs := initializeChainConfigs(cfg)
+	
+	// Initialize LayerZero client
+	layerZeroClient, err := NewLayerZeroClient(cfg.LayerZeroEndpoint, cfg.LayerZeroAPIKey, bc)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed to initialize LayerZero client: %w", err)
+	}
+	
+	// Initialize Hedera event listener
+	hederaListener, err := NewHederaEventListener(bc.GetHederaClient(), cfg.HederaContractAddress)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed to initialize Hedera listener: %w", err)
+	}
+	
+	relayer := &TrustedRelayer{
+		config:          cfg,
+		blockchain:      bc,
+		privateKey:      privateKey,
+		publicAddress:   publicAddress,
+		hederaListener:  hederaListener,
+		messageQueue:    make(chan *Message, 1000),
+		messageStore:    make(map[string]*Message),
+		layerZeroClient: layerZeroClient,
+		chainConfigs:    chainConfigs,
+		ctx:            ctx,
+		cancel:         cancel,
+		metrics:        &RelayerMetrics{},
+	}
+	
+	return relayer, nil
+}
+
+// initializeChainConfigs initializes chain configurations
+func initializeChainConfigs(cfg *config.Config) map[string]*ChainConfig {
+	return map[string]*ChainConfig{
+		"ethereum": {
+			ChainID:         "1",
+			Name:           "Ethereum",
+			RPCURL:         cfg.EthereumRPC,
+			ContractAddress: common.HexToAddress(cfg.EthereumLiquidityPool),
+			GasLimit:       500000,
+			GasPrice:       big.NewInt(20000000000), // 20 Gwei
+			Confirmations:  12,
+			Enabled:        cfg.EthereumRPC != "",
+		},
+		"base": {
+			ChainID:         "8453",
+			Name:           "Base",
+			RPCURL:         cfg.BaseRPC,
+			ContractAddress: common.HexToAddress(cfg.BaseLiquidityPool),
+			GasLimit:       500000,
+			GasPrice:       big.NewInt(1000000000), // 1 Gwei
+			Confirmations:  5,
+			Enabled:        cfg.BaseRPC != "",
+		},
+		"solana": {
+			ChainID:         "solana",
+			Name:           "Solana",
+			RPCURL:         cfg.SolanaRPC,
+			ContractAddress: common.HexToAddress("0x0000000000000000000000000000000000000000"), // Placeholder
+			GasLimit:       0, // Solana doesn't use gas
+			GasPrice:       big.NewInt(0),
+			Confirmations:  1,
+			Enabled:        cfg.SolanaRPC != "",
+		},
+		"aptos": {
+			ChainID:         "aptos",
+			Name:           "Aptos",
+			RPCURL:         cfg.AptosRPC,
+			ContractAddress: common.HexToAddress("0x0000000000000000000000000000000000000000"), // Placeholder
+			GasLimit:       0, // Aptos doesn't use gas
+			GasPrice:       big.NewInt(0),
+			Confirmations:  1,
+			Enabled:        cfg.AptosRPC != "",
+		},
+	}
+}
+
+// Start starts the trusted relayer service
+func (tr *TrustedRelayer) Start() error {
+	log.Info().Str("address", tr.publicAddress.Hex()).Msg("Starting trusted relayer service")
+	
+	// Start event listeners
+	if err := tr.hederaListener.Start(tr.ctx, tr.handleHederaEvent); err != nil {
+		return fmt.Errorf("failed to start Hedera listener: %w", err)
+	}
+	
+	// Start message processors
+	tr.processing.Add(1)
+	go tr.messageProcessor()
+	
+	// Start metrics reporter
+	tr.processing.Add(1)
+	go tr.metricsReporter()
+	
+	log.Info().Msg("Trusted relayer service started successfully")
+	return nil
+}
+
+// Stop stops the trusted relayer service
+func (tr *TrustedRelayer) Stop() error {
+	log.Info().Msg("Stopping trusted relayer service")
+	
+	// Cancel context
+	tr.cancel()
+	
+	// Stop event listeners
+	tr.hederaListener.Stop()
+	
+	// Wait for processors to finish
+	done := make(chan struct{})
+	go func() {
+		tr.processing.Wait()
+		close(done)
+	}()
+	
+	select {
+	case <-done:
+		log.Info().Msg("Trusted relayer service stopped successfully")
+		return nil
+	case <-time.After(30 * time.Second):
+		return fmt.Errorf("timeout waiting for relayer to stop")
+	}
+}
+
+// handleHederaEvent handles events from Hedera
+func (tr *TrustedRelayer) handleHederaEvent(event interface{}) error {
+	switch e := event.(type) {
+	case *LoanApprovalEvent:
+		return tr.handleLoanApproval(e)
+	case *LoanDisbursementEvent:
+		return tr.handleLoanDisbursement(e)
+	case *RepaymentEvent:
+		return tr.handleRepayment(e)
+	default:
+		log.Warn().Interface("event", event).Msg("Unknown event type")
+		return nil
+	}
+}
+
+// handleLoanApproval handles loan approval events
+func (tr *TrustedRelayer) handleLoanApproval(event *LoanApprovalEvent) error {
+	log.Info().
+		Str("token_id", event.TokenID.String()).
+		Str("borrower", event.Borrower.Hex()).
+		Str("merchant", event.Merchant.Hex()).
+		Str("amount", event.Amount.String()).
+		Msg("Processing loan approval event")
+	
+	// Create cross-chain message for each enabled chain
+	for chainID, config := range tr.chainConfigs {
+		if !config.Enabled {
+			continue
+		}
+		
+		message, err := tr.createLoanApprovalMessage(event, chainID)
+		if err != nil {
+			log.Error().Err(err).Str("chain_id", chainID).Msg("Failed to create loan approval message")
+			continue
+		}
+		
+		// Queue message for processing
+		tr.messageQueue <- message
+	}
+	
+	return nil
+}
+
+// handleLoanDisbursement handles loan disbursement events
+func (tr *TrustedRelayer) handleLoanDisbursement(event *LoanDisbursementEvent) error {
+	log.Info().
+		Str("token_id", event.TokenID.String()).
+		Str("amount", event.Amount.String()).
+		Str("merchant", event.Merchant.Hex()).
+		Msg("Processing loan disbursement event")
+	
+	// Create cross-chain message for each enabled chain
+	for chainID, config := range tr.chainConfigs {
+		if !config.Enabled {
+			continue
+		}
+		
+		message, err := tr.createLoanDisbursementMessage(event, chainID)
+		if err != nil {
+			log.Error().Err(err).Str("chain_id", chainID).Msg("Failed to create loan disbursement message")
+			continue
+		}
+		
+		// Queue message for processing
+		tr.messageQueue <- message
+	}
+	
+	return nil
+}
+
+// handleRepayment handles repayment events
+func (tr *TrustedRelayer) handleRepayment(event *RepaymentEvent) error {
+	log.Info().
+		Str("token_id", event.TokenID.String()).
+		Str("amount", event.Amount.String()).
+		Str("total_repaid", event.TotalRepaid.String()).
+		Str("payer", event.Payer.Hex()).
+		Msg("Processing repayment event")
+	
+	// Create cross-chain message for each enabled chain
+	for chainID, config := range tr.chainConfigs {
+		if !config.Enabled {
+			continue
+		}
+		
+		message, err := tr.createRepaymentMessage(event, chainID)
+		if err != nil {
+			log.Error().Err(err).Str("chain_id", chainID).Msg("Failed to create repayment message")
+			continue
+		}
+		
+		// Queue message for processing
+		tr.messageQueue <- message
+	}
+	
+	return nil
+}
+
+// messageProcessor processes messages from the queue
+func (tr *TrustedRelayer) messageProcessor() {
+	defer tr.processing.Done()
+	
+	for {
+		select {
+		case <-tr.ctx.Done():
+			return
+		case message := <-tr.messageQueue:
+			tr.processMessage(message)
+		}
+	}
+}
+
+// processMessage processes a single message
+func (tr *TrustedRelayer) processMessage(message *Message) {
+	startTime := time.Now()
+	
+	log.Info().
+		Str("message_type", message.Type.String()).
+		Str("chain_id", message.ChainID).
+		Str("status", message.Status.String()).
+		Msg("Processing message")
+	
+	// Update metrics
+	tr.metrics.MessagesProcessed++
+	
+	// Send message via LayerZero
+	err := tr.layerZeroClient.SendMessage(tr.ctx, message)
+	if err != nil {
+		log.Error().Err(err).Str("chain_id", message.ChainID).Msg("Failed to send message")
+		
+		// Update message status
+		message.Status = StatusFailed
+		message.RetryCount++
+		
+		// Retry logic
+		if message.RetryCount < tr.config.MaxRetries {
+			message.Status = StatusRetrying
+			go func() {
+				time.Sleep(time.Duration(message.RetryCount) * time.Second * 5)
+				tr.messageQueue <- message
+			}()
+		}
+		
+		tr.metrics.MessagesFailed++
+		return
+	}
+	
+	// Update message status
+	message.Status = StatusSent
+	
+	// Wait for confirmation
+	err = tr.waitForConfirmation(message)
+	if err != nil {
+		log.Error().Err(err).Str("chain_id", message.ChainID).Msg("Failed to confirm message")
+		message.Status = StatusFailed
+		tr.metrics.MessagesFailed++
+		return
+	}
+	
+	// Update metrics
+	message.Status = StatusConfirmed
+	tr.metrics.MessagesSent++
+	tr.metrics.MessagesConfirmed++
+	
+	// Update latency
+	latency := time.Since(startTime)
+	tr.metrics.AverageLatency = time.Duration(
+		(int64(tr.metrics.AverageLatency)*int64(tr.metrics.MessagesConfirmed-1) + int64(latency)) /
+			int64(tr.metrics.MessagesConfirmed),
+	)
+	tr.metrics.LastProcessedTime = time.Now()
+	
+	log.Info().
+		Str("message_type", message.Type.String()).
+		Str("chain_id", message.ChainID).
+		Dur("latency", latency).
+		Msg("Message processed successfully")
+}
+
+// waitForConfirmation waits for message confirmation
+func (tr *TrustedRelayer) waitForConfirmation(message *Message) error {
+	config, ok := tr.chainConfigs[message.ChainID]
+	if !ok {
+		return fmt.Errorf("chain config not found for %s", message.ChainID)
+	}
+	
+	// For EVM chains, wait for confirmations
+	if message.ChainID == "ethereum" || message.ChainID == "base" {
+		// Implementation would wait for block confirmations
+		time.Sleep(time.Duration(config.Confirmations) * 15 * time.Second)
+	}
+	
+	// For Solana and Aptos, confirmation is faster
+	if message.ChainID == "solana" || message.ChainID == "aptos" {
+		time.Sleep(5 * time.Second)
+	}
+	
+	return nil
+}
+
+// metricsReporter reports metrics periodically
+func (tr *TrustedRelayer) metricsReporter() {
+	defer tr.processing.Done()
+	
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	
+	for {
+		select {
+		case <-tr.ctx.Done():
+			return
+		case <-ticker.C:
+			tr.reportMetrics()
+		}
+	}
+}
+
+// reportMetrics logs current metrics
+func (tr *TrustedRelayer) reportMetrics() {
+	log.Info().
+		Uint64("processed", tr.metrics.MessagesProcessed).
+		Uint64("sent", tr.metrics.MessagesSent).
+		Uint64("confirmed", tr.metrics.MessagesConfirmed).
+		Uint64("failed", tr.metrics.MessagesFailed).
+		Dur("avg_latency", tr.metrics.AverageLatency).
+		Time("last_processed", tr.metrics.LastProcessedTime).
+		Msg("Relayer metrics")
+}
+
+// GetMetrics returns current relayer metrics
+func (tr *TrustedRelayer) GetMetrics() *RelayerMetrics {
+	return tr.metrics
+}
+
+// GetMessageStatus returns the status of a specific message
+func (tr *TrustedRelayer) GetMessageStatus(messageID string) (*Message, error) {
+	tr.storeMutex.RLock()
+	defer tr.storeMutex.RUnlock()
+	
+	message, ok := tr.messageStore[messageID]
+	if !ok {
+		return nil, fmt.Errorf("message not found: %s", messageID)
+	}
+	
+	return message, nil
+}

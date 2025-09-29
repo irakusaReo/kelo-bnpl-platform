@@ -1,0 +1,15 @@
+[package]
+name = "kelo-liquidity-pool"
+version = "0.1.0"
+authors = ["Kelo Team"]
+
+[addresses]
+kelo = "0x1234567890abcdef1234567890abcdef12345678"
+
+[dev-addresses]
+kelo = "0x1234567890abcdef1234567890abcdef12345678"
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-core.git"
+rev = "mainnet"
+subdir = "aptos-move/framework/aptos-framework"
