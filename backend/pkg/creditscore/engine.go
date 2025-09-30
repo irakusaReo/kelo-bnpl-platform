@@ -42,6 +42,7 @@ type DIDResolver struct {
 // HCSAnalyzer handles Hedera Consensus Service message analysis
 type HCSAnalyzer struct {
 	blockchain *blockchain.Clients
+	config     HCSAnalyzerConfig
 }
 
 // ScoringFactors represents the factors that contribute to a credit score

@@ -1,14 +1,14 @@
 package creditscore
 
 import (
-	"encoding/json"
+	"context"
 	"net/http"
 	"strconv"
 	"time"
 
-	"kelo-backend/pkg/models"
+	"kelo-backend/pkg/utils"
 
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
 
@@ -24,207 +24,163 @@ func NewCreditScoreHandler(service *CreditScoreService) *CreditScoreHandler {
 	}
 }
 
-// RegisterRoutes registers the credit score routes
-func (h *CreditScoreHandler) RegisterRoutes(router *mux.Router) {
+// RegisterRoutes registers the credit score routes with a gin router
+func (h *CreditScoreHandler) RegisterRoutes(router *gin.Engine) {
+	api := router.Group("/api/v1/creditscore")
+	api.Use(h.AuthMiddleware()) // Apply auth middleware to the group
+
 	// Credit score routes
-	router.HandleFunc("/api/v1/creditscore/{userID}", h.GetCreditScore).Methods("GET")
-	router.HandleFunc("/api/v1/creditscore/{userID}", h.UpdateCreditScore).Methods("PUT")
-	router.HandleFunc("/api/v1/creditscore/{userID}/report", h.GetCreditScoreReport).Methods("GET")
-	router.HandleFunc("/api/v1/creditscore/{userID}/history", h.GetCreditScoreHistory).Methods("GET")
-	
+	api.GET("/:userID", h.GetCreditScore)
+	api.PUT("/:userID", h.UpdateCreditScore)
+	api.GET("/:userID/report", h.GetCreditScoreReport)
+	api.GET("/:userID/history", h.GetCreditScoreHistory)
+
 	// External data source routes
-	router.HandleFunc("/api/v1/creditscore/{userID}/datasources", h.AddExternalDataSource).Methods("POST")
-	
+	api.POST("/:userID/datasources", h.AddExternalDataSource)
+
 	// Analytics routes
-	router.HandleFunc("/api/v1/creditscore/{userID}/analytics", h.GetUserAnalytics).Methods("GET")
-	router.HandleFunc("/api/v1/creditscore/{userID}/risk", h.GetRiskAssessment).Methods("GET")
-	router.HandleFunc("/api/v1/creditscore/{userID}/eligibility", h.GetLoanEligibility).Methods("GET")
-	
+	api.GET("/:userID/analytics", h.GetUserAnalytics)
+	api.GET("/:userID/risk", h.GetRiskAssessment)
+	api.GET("/:userID/eligibility", h.GetLoanEligibility)
+
 	// DID-related routes
-	router.HandleFunc("/api/v1/creditscore/{userID}/did", h.GetDIDAnalysis).Methods("GET")
-	router.HandleFunc("/api/v1/creditscore/{userID}/did/verify", h.VerifyDID).Methods("POST")
-	
+	api.GET("/:userID/did", h.GetDIDAnalysis)
+	api.POST("/:userID/did/verify", h.VerifyDID)
+
 	// HCS-related routes
-	router.HandleFunc("/api/v1/creditscore/{userID}/hcs/behavior", h.GetHCSBehavior).Methods("GET")
-	router.HandleFunc("/api/v1/creditscore/{userID}/hcs/repayments", h.GetHCSRepayments).Methods("GET")
-	router.HandleFunc("/api/v1/creditscore/{userID}/hcs/loans", h.GetHCSLoans).Methods("GET")
+	api.GET("/:userID/hcs/behavior", h.GetHCSBehavior)
+	api.GET("/:userID/hcs/repayments", h.GetHCSRepayments)
+	api.GET("/:userID/hcs/loans", h.GetHCSLoans)
 }
 
-// GetCreditScore handles GET /api/v1/creditscore/{userID}
-func (h *CreditScoreHandler) GetCreditScore(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	userID := vars["userID"]
-
+// GetCreditScore handles GET /api/v1/creditscore/:userID
+func (h *CreditScoreHandler) GetCreditScore(c *gin.Context) {
+	userID := c.Param("userID")
 	if userID == "" {
-		http.Error(w, "User ID is required", http.StatusBadRequest)
+		utils.WriteErrorResponse(c, http.StatusBadRequest, "User ID is required")
 		return
 	}
 
-	ctx := r.Context()
-	response, err := h.service.GetUserCreditScore(ctx, userID)
+	response, err := h.service.GetUserCreditScore(c.Request.Context(), userID)
 	if err != nil {
 		log.Error().Err(err).Str("userID", userID).Msg("Failed to get credit score")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		utils.WriteErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	utils.WriteSuccessResponse(c, response)
 }
 
-// UpdateCreditScore handles PUT /api/v1/creditscore/{userID}
-func (h *CreditScoreHandler) UpdateCreditScore(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	userID := vars["userID"]
-
+// UpdateCreditScore handles PUT /api/v1/creditscore/:userID
+func (h *CreditScoreHandler) UpdateCreditScore(c *gin.Context) {
+	userID := c.Param("userID")
 	if userID == "" {
-		http.Error(w, "User ID is required", http.StatusBadRequest)
+		utils.WriteErrorResponse(c, http.StatusBadRequest, "User ID is required")
 		return
 	}
 
-	ctx := r.Context()
-	response, err := h.service.UpdateUserCreditScore(ctx, userID)
+	response, err := h.service.UpdateUserCreditScore(c.Request.Context(), userID)
 	if err != nil {
 		log.Error().Err(err).Str("userID", userID).Msg("Failed to update credit score")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		utils.WriteErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	utils.WriteSuccessResponse(c, response)
 }
 
-// GetCreditScoreReport handles GET /api/v1/creditscore/{userID}/report
-func (h *CreditScoreHandler) GetCreditScoreReport(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	userID := vars["userID"]
-
+// GetCreditScoreReport handles GET /api/v1/creditscore/:userID/report
+func (h *CreditScoreHandler) GetCreditScoreReport(c *gin.Context) {
+	userID := c.Param("userID")
 	if userID == "" {
-		http.Error(w, "User ID is required", http.StatusBadRequest)
+		utils.WriteErrorResponse(c, http.StatusBadRequest, "User ID is required")
 		return
 	}
 
-	// Parse query parameters
-	includeDetailed := r.URL.Query().Get("detailed") == "true"
-
-	ctx := r.Context()
-	report, err := h.service.GenerateCreditScoreReport(ctx, userID, includeDetailed)
+	includeDetailed := c.Query("detailed") == "true"
+	report, err := h.service.GenerateCreditScoreReport(c.Request.Context(), userID, includeDetailed)
 	if err != nil {
 		log.Error().Err(err).Str("userID", userID).Msg("Failed to generate credit score report")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		utils.WriteErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(report)
+	utils.WriteSuccessResponse(c, report)
 }
 
-// GetCreditScoreHistory handles GET /api/v1/creditscore/{userID}/history
-func (h *CreditScoreHandler) GetCreditScoreHistory(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	userID := vars["userID"]
-
+// GetCreditScoreHistory handles GET /api/v1/creditscore/:userID/history
+func (h *CreditScoreHandler) GetCreditScoreHistory(c *gin.Context) {
+	userID := c.Param("userID")
 	if userID == "" {
-		http.Error(w, "User ID is required", http.StatusBadRequest)
+		utils.WriteErrorResponse(c, http.StatusBadRequest, "User ID is required")
 		return
 	}
 
-	// Parse query parameters
-	limitStr := r.URL.Query().Get("limit")
-	limit := 10 // Default limit
-
-	if limitStr != "" {
-		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
-			limit = parsedLimit
-		}
-	}
-
-	ctx := r.Context()
-	history, err := h.service.GetCreditScoreHistory(ctx, userID, limit)
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	history, err := h.service.GetCreditScoreHistory(c.Request.Context(), userID, limit)
 	if err != nil {
 		log.Error().Err(err).Str("userID", userID).Msg("Failed to get credit score history")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		utils.WriteErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(history)
+	utils.WriteSuccessResponse(c, history)
 }
 
-// AddExternalDataSource handles POST /api/v1/creditscore/{userID}/datasources
-func (h *CreditScoreHandler) AddExternalDataSource(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	userID := vars["userID"]
-
+// AddExternalDataSource handles POST /api/v1/creditscore/:userID/datasources
+func (h *CreditScoreHandler) AddExternalDataSource(c *gin.Context) {
+	userID := c.Param("userID")
 	if userID == "" {
-		http.Error(w, "User ID is required", http.StatusBadRequest)
+		utils.WriteErrorResponse(c, http.StatusBadRequest, "User ID is required")
 		return
 	}
 
 	var request struct {
-		SourceType string `json:"source_type" validate:"required"`
-		Identifier string `json:"identifier" validate:"required"`
+		SourceType string `json:"source_type" binding:"required"`
+		Identifier string `json:"identifier" binding:"required"`
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	if err := c.ShouldBindJSON(&request); err != nil {
+		utils.WriteErrorResponse(c, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
 	}
 
-	if request.SourceType == "" || request.Identifier == "" {
-		http.Error(w, "Source type and identifier are required", http.StatusBadRequest)
-		return
-	}
-
-	ctx := r.Context()
-	err := h.service.AddExternalDataSource(ctx, userID, request.SourceType, request.Identifier)
+	err := h.service.AddExternalDataSource(c.Request.Context(), userID, request.SourceType, request.Identifier)
 	if err != nil {
 		log.Error().Err(err).
 			Str("userID", userID).
 			Str("sourceType", request.SourceType).
 			Str("identifier", request.Identifier).
 			Msg("Failed to add external data source")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		utils.WriteErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	response := map[string]interface{}{
+	response := gin.H{
 		"message":     "External data source added successfully",
 		"source_type": request.SourceType,
 		"identifier":  request.Identifier,
 		"added_at":    time.Now(),
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(response)
+	utils.WriteCreatedResponse(c, response)
 }
 
-// GetUserAnalytics handles GET /api/v1/creditscore/{userID}/analytics
-func (h *CreditScoreHandler) GetUserAnalytics(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	userID := vars["userID"]
-
+// GetUserAnalytics handles GET /api/v1/creditscore/:userID/analytics
+func (h *CreditScoreHandler) GetUserAnalytics(c *gin.Context) {
+	userID := c.Param("userID")
 	if userID == "" {
-		http.Error(w, "User ID is required", http.StatusBadRequest)
+		utils.WriteErrorResponse(c, http.StatusBadRequest, "User ID is required")
 		return
 	}
 
-	// Get detailed credit score report with analytics
-	ctx := r.Context()
-	report, err := h.service.GenerateCreditScoreReport(ctx, userID, true)
+	report, err := h.service.GenerateCreditScoreReport(c.Request.Context(), userID, true)
 	if err != nil {
 		log.Error().Err(err).Str("userID", userID).Msg("Failed to get user analytics")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		utils.WriteErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	// Extract analytics data
-	analytics := map[string]interface{}{
+	analytics := gin.H{
 		"user_id":             userID,
 		"current_score":       report.CurrentScore,
 		"previous_score":      report.PreviousScore,
@@ -236,318 +192,209 @@ func (h *CreditScoreHandler) GetUserAnalytics(w http.ResponseWriter, r *http.Req
 		"hcs_analysis":        report.HCSAnalysis,
 		"generated_at":        time.Now(),
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(analytics)
+	utils.WriteSuccessResponse(c, analytics)
 }
 
-// GetRiskAssessment handles GET /api/v1/creditscore/{userID}/risk
-func (h *CreditScoreHandler) GetRiskAssessment(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	userID := vars["userID"]
-
+// GetRiskAssessment handles GET /api/v1/creditscore/:userID/risk
+func (h *CreditScoreHandler) GetRiskAssessment(c *gin.Context) {
+	userID := c.Param("userID")
 	if userID == "" {
-		http.Error(w, "User ID is required", http.StatusBadRequest)
+		utils.WriteErrorResponse(c, http.StatusBadRequest, "User ID is required")
 		return
 	}
 
-	// Get credit score report with risk assessment
-	ctx := r.Context()
-	report, err := h.service.GenerateCreditScoreReport(ctx, userID, true)
+	report, err := h.service.GenerateCreditScoreReport(c.Request.Context(), userID, true)
 	if err != nil {
 		log.Error().Err(err).Str("userID", userID).Msg("Failed to get risk assessment")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		utils.WriteErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	if report.RiskAssessment == nil {
-		http.Error(w, "Risk assessment not available", http.StatusNotFound)
+		utils.WriteErrorResponse(c, http.StatusNotFound, "Risk assessment not available")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(report.RiskAssessment)
+	utils.WriteSuccessResponse(c, report.RiskAssessment)
 }
 
-// GetLoanEligibility handles GET /api/v1/creditscore/{userID}/eligibility
-func (h *CreditScoreHandler) GetLoanEligibility(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	userID := vars["userID"]
-
+// GetLoanEligibility handles GET /api/v1/creditscore/:userID/eligibility
+func (h *CreditScoreHandler) GetLoanEligibility(c *gin.Context) {
+	userID := c.Param("userID")
 	if userID == "" {
-		http.Error(w, "User ID is required", http.StatusBadRequest)
+		utils.WriteErrorResponse(c, http.StatusBadRequest, "User ID is required")
 		return
 	}
 
-	// Get credit score report with loan eligibility
-	ctx := r.Context()
-	report, err := h.service.GenerateCreditScoreReport(ctx, userID, true)
+	report, err := h.service.GenerateCreditScoreReport(c.Request.Context(), userID, true)
 	if err != nil {
 		log.Error().Err(err).Str("userID", userID).Msg("Failed to get loan eligibility")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		utils.WriteErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	if report.LoanEligibility == nil {
-		http.Error(w, "Loan eligibility assessment not available", http.StatusNotFound)
+		utils.WriteErrorResponse(c, http.StatusNotFound, "Loan eligibility assessment not available")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(report.LoanEligibility)
+	utils.WriteSuccessResponse(c, report.LoanEligibility)
 }
 
-// GetDIDAnalysis handles GET /api/v1/creditscore/{userID}/did
-func (h *CreditScoreHandler) GetDIDAnalysis(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	userID := vars["userID"]
-
+// GetDIDAnalysis handles GET /api/v1/creditscore/:userID/did
+func (h *CreditScoreHandler) GetDIDAnalysis(c *gin.Context) {
+	userID := c.Param("userID")
 	if userID == "" {
-		http.Error(w, "User ID is required", http.StatusBadRequest)
+		utils.WriteErrorResponse(c, http.StatusBadRequest, "User ID is required")
 		return
 	}
 
-	// Get credit score report with DID analysis
-	ctx := r.Context()
-	report, err := h.service.GenerateCreditScoreReport(ctx, userID, true)
+	report, err := h.service.GenerateCreditScoreReport(c.Request.Context(), userID, true)
 	if err != nil {
 		log.Error().Err(err).Str("userID", userID).Msg("Failed to get DID analysis")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		utils.WriteErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	if report.DIDAnalysis == nil {
-		http.Error(w, "DID analysis not available", http.StatusNotFound)
+		utils.WriteErrorResponse(c, http.StatusNotFound, "DID analysis not available")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(report.DIDAnalysis)
+	utils.WriteSuccessResponse(c, report.DIDAnalysis)
 }
 
-// VerifyDID handles POST /api/v1/creditscore/{userID}/did/verify
-func (h *CreditScoreHandler) VerifyDID(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	userID := vars["userID"]
-
+// VerifyDID handles POST /api/v1/creditscore/:userID/did/verify
+func (h *CreditScoreHandler) VerifyDID(c *gin.Context) {
+	userID := c.Param("userID")
 	if userID == "" {
-		http.Error(w, "User ID is required", http.StatusBadRequest)
+		utils.WriteErrorResponse(c, http.StatusBadRequest, "User ID is required")
 		return
 	}
 
 	var request struct {
-		DID string `json:"did" validate:"required"`
+		DID string `json:"did" binding:"required"`
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	if err := c.ShouldBindJSON(&request); err != nil {
+		utils.WriteErrorResponse(c, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
 	}
 
-	if request.DID == "" {
-		http.Error(w, "DID is required", http.StatusBadRequest)
-		return
-	}
-
-	// Validate DID format
 	if !ValidateDIDFormat(request.DID) {
-		http.Error(w, "Invalid DID format", http.StatusBadRequest)
+		utils.WriteErrorResponse(c, http.StatusBadRequest, "Invalid DID format")
 		return
 	}
 
-	ctx := r.Context()
-	isVerified, err := h.service.didResolver.VerifyDID(ctx, request.DID)
+	isVerified, err := h.service.didResolver.VerifyDID(c.Request.Context(), request.DID)
 	if err != nil {
 		log.Error().Err(err).Str("userID", userID).Str("did", request.DID).Msg("Failed to verify DID")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		utils.WriteErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	response := map[string]interface{}{
+	response := gin.H{
 		"did":         request.DID,
 		"is_verified": isVerified,
 		"verified_at": time.Now(),
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	utils.WriteSuccessResponse(c, response)
 }
 
-// GetHCSBehavior handles GET /api/v1/creditscore/{userID}/hcs/behavior
-func (h *CreditScoreHandler) GetHCSBehavior(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	userID := vars["userID"]
-
+// GetHCSBehavior handles GET /api/v1/creditscore/:userID/hcs/behavior
+func (h *CreditScoreHandler) GetHCSBehavior(c *gin.Context) {
+	userID := c.Param("userID")
 	if userID == "" {
-		http.Error(w, "User ID is required", http.StatusBadRequest)
+		utils.WriteErrorResponse(c, http.StatusBadRequest, "User ID is required")
 		return
 	}
 
-	ctx := r.Context()
-	analytics, err := h.service.hcsAnalyzer.AnalyzeUserBehavior(ctx, userID)
+	analytics, err := h.service.hcsAnalyzer.AnalyzeUserBehavior(c.Request.Context(), userID)
 	if err != nil {
 		log.Error().Err(err).Str("userID", userID).Msg("Failed to get HCS behavior analysis")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		utils.WriteErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(analytics)
+	utils.WriteSuccessResponse(c, analytics)
 }
 
-// GetHCSRepayments handles GET /api/v1/creditscore/{userID}/hcs/repayments
-func (h *CreditScoreHandler) GetHCSRepayments(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	userID := vars["userID"]
-
+// GetHCSRepayments handles GET /api/v1/creditscore/:userID/hcs/repayments
+func (h *CreditScoreHandler) GetHCSRepayments(c *gin.Context) {
+	userID := c.Param("userID")
 	if userID == "" {
-		http.Error(w, "User ID is required", http.StatusBadRequest)
+		utils.WriteErrorResponse(c, http.StatusBadRequest, "User ID is required")
 		return
 	}
 
-	// Parse query parameters
-	daysStr := r.URL.Query().Get("days")
-	days := 90 // Default 90 days
-
-	if daysStr != "" {
-		if parsedDays, err := strconv.Atoi(daysStr); err == nil && parsedDays > 0 {
-			days = parsedDays
-		}
-	}
-
-	ctx := r.Context()
-	repayments, err := h.service.hcsAnalyzer.GetRepaymentHistory(ctx, userID, days)
+	days, _ := strconv.Atoi(c.DefaultQuery("days", "90"))
+	repayments, err := h.service.hcsAnalyzer.GetRepaymentHistory(c.Request.Context(), userID, days)
 	if err != nil {
 		log.Error().Err(err).Str("userID", userID).Msg("Failed to get HCS repayment history")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		utils.WriteErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	response := map[string]interface{}{
+	response := gin.H{
 		"user_id":    userID,
 		"days":       days,
 		"repayments": repayments,
 		"count":      len(repayments),
 		"generated_at": time.Now(),
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	utils.WriteSuccessResponse(c, response)
 }
 
-// GetHCSLoans handles GET /api/v1/creditscore/{userID}/hcs/loans
-func (h *CreditScoreHandler) GetHCSLoans(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	userID := vars["userID"]
-
+// GetHCSLoans handles GET /api/v1/creditscore/:userID/hcs/loans
+func (h *CreditScoreHandler) GetHCSLoans(c *gin.Context) {
+	userID := c.Param("userID")
 	if userID == "" {
-		http.Error(w, "User ID is required", http.StatusBadRequest)
+		utils.WriteErrorResponse(c, http.StatusBadRequest, "User ID is required")
 		return
 	}
 
-	// Parse query parameters
-	daysStr := r.URL.Query().Get("days")
-	days := 180 // Default 180 days
-
-	if daysStr != "" {
-		if parsedDays, err := strconv.Atoi(daysStr); err == nil && parsedDays > 0 {
-			days = parsedDays
-		}
-	}
-
-	ctx := r.Context()
-	loans, err := h.service.hcsAnalyzer.GetLoanHistory(ctx, userID, days)
+	days, _ := strconv.Atoi(c.DefaultQuery("days", "180"))
+	loans, err := h.service.hcsAnalyzer.GetLoanHistory(c.Request.Context(), userID, days)
 	if err != nil {
 		log.Error().Err(err).Str("userID", userID).Msg("Failed to get HCS loan history")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		utils.WriteErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	response := map[string]interface{}{
+	response := gin.H{
 		"user_id":     userID,
 		"days":        days,
 		"loans":       loans,
 		"count":       len(loans),
 		"generated_at": time.Now(),
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	utils.WriteSuccessResponse(c, response)
 }
 
-// Middleware for authentication and authorization
-func (h *CreditScoreHandler) AuthMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Extract token from Authorization header
-		token := r.Header.Get("Authorization")
+// AuthMiddleware creates a gin middleware for authentication and authorization
+func (h *CreditScoreHandler) AuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := c.GetHeader("Authorization")
 		if token == "" {
-			http.Error(w, "Authorization token required", http.StatusUnauthorized)
+			utils.WriteErrorResponse(c, http.StatusUnauthorized, "Authorization token required")
+			c.Abort()
 			return
 		}
 
-		// Remove "Bearer " prefix if present
 		if len(token) > 7 && token[:7] == "Bearer " {
 			token = token[7:]
 		}
 
-		// Validate token (this is a simplified implementation)
-		// In a real implementation, you would validate the JWT token
 		if token == "" {
-			http.Error(w, "Invalid authorization token", http.StatusUnauthorized)
+			utils.WriteErrorResponse(c, http.StatusUnauthorized, "Invalid authorization token")
+			c.Abort()
 			return
 		}
 
-		// Add user context (simplified)
-		ctx := r.Context()
-		ctx = contextWithUserID(ctx, "user_id_from_token") // In real implementation, extract from token
+		// In a real implementation, you would validate the JWT and extract user info
+		ctx := context.WithValue(c.Request.Context(), "userID", "user_id_from_token")
+		c.Request = c.Request.WithContext(ctx)
 
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
-
-// Helper function to add user ID to context
-func contextWithUserID(ctx context.Context, userID string) context.Context {
-	// In a real implementation, you would use a proper context key type
-	type contextKey string
-	const userIDKey contextKey = "userID"
-	return context.WithValue(ctx, userIDKey, userID)
-}
-
-// Helper function to get user ID from context
-func getUserIDFromContext(ctx context.Context) (string, bool) {
-	type contextKey string
-	const userIDKey contextKey = "userID"
-	userID, ok := ctx.Value(userIDKey).(string)
-	return userID, ok
-}
-
-// Error response helper
-func writeErrorResponse(w http.ResponseWriter, message string, statusCode int) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(map[string]string{
-		"error": message,
-	})
-}
-
-// Success response helper
-func writeSuccessResponse(w http.ResponseWriter, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(data)
-}
-
-// Created response helper
-func writeCreatedResponse(w http.ResponseWriter, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(data)
+		c.Next()
+	}
 }

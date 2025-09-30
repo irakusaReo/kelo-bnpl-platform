@@ -3,7 +3,6 @@ package relayer
 import (
 	"context"
 	"crypto/ecdsa"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"sync"
@@ -11,11 +10,7 @@ import (
 
 	"kelo-backend/pkg/blockchain"
 	"kelo-backend/pkg/config"
-	"kelo-backend/pkg/logger"
 
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -160,21 +155,6 @@ type RelayerMetrics struct {
 	LastProcessedTime    time.Time     `json:"last_processed_time"`
 }
 
-// HederaEventListener listens for events on Hedera
-type HederaEventListener struct {
-	client         *blockchain.HederaClient
-	contractAddr   common.Address
-	eventTopics    map[string]common.Hash
-	quitChan       chan struct{}
-}
-
-// LayerZeroClient handles LayerZero message sending
-type LayerZeroClient struct {
-	endpoint      string
-	apiKey        string
-	clients       map[string]*ethclient.Client
-	auth          *bind.TransactOpts
-}
 
 // NewTrustedRelayer creates a new trusted relayer service
 func NewTrustedRelayer(cfg *config.Config, bc *blockchain.Clients) (*TrustedRelayer, error) {

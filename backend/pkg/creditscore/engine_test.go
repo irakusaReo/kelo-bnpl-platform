@@ -67,7 +67,7 @@ func TestCreditScoreEngine(t *testing.T) {
 
         // Create test user
         user := models.User{
-                ID:           "test_user_001",
+                BaseModel:    models.BaseModel{ID: "test_user_001", CreatedAt: time.Now().Add(-30 * 24 * time.Hour), UpdatedAt: time.Now()},
                 Email:        "test@example.com",
                 PasswordHash: "hashed_password",
                 FirstName:    "John",
@@ -76,8 +76,6 @@ func TestCreditScoreEngine(t *testing.T) {
                 DID:          "did:hedera:testnet:0.0.1234567",
                 WalletAddress: "0x1234567890123456789012345678901234567890",
                 IsActive:     true,
-                CreatedAt:    time.Now().Add(-30 * 24 * time.Hour), // 30 days ago
-                UpdatedAt:    time.Now(),
         }
         err = db.Create(&user).Error
         assert.NoError(t, err)
@@ -85,7 +83,7 @@ func TestCreditScoreEngine(t *testing.T) {
         // Create test transactions
         transactions := []models.Transaction{
                 {
-                        ID:               "tx_001",
+                        BaseModel:        models.BaseModel{ID: "tx_001", CreatedAt: time.Now().Add(-25 * 24 * time.Hour), UpdatedAt: time.Now()},
                         UserID:           user.ID,
                         Type:             "deposit",
                         Amount:           1000.0,
@@ -93,11 +91,9 @@ func TestCreditScoreEngine(t *testing.T) {
                         ChainID:          "ethereum",
                         TransactionHash:  "0xabc123",
                         Status:           "confirmed",
-                        CreatedAt:        time.Now().Add(-25 * 24 * time.Hour),
-                        UpdatedAt:        time.Now(),
                 },
                 {
-                        ID:               "tx_002",
+                        BaseModel:        models.BaseModel{ID: "tx_002", CreatedAt: time.Now().Add(-20 * 24 * time.Hour), UpdatedAt: time.Now()},
                         UserID:           user.ID,
                         Type:             "withdrawal",
                         Amount:           500.0,
@@ -105,11 +101,9 @@ func TestCreditScoreEngine(t *testing.T) {
                         ChainID:          "ethereum",
                         TransactionHash:  "0xdef456",
                         Status:           "confirmed",
-                        CreatedAt:        time.Now().Add(-20 * 24 * time.Hour),
-                        UpdatedAt:        time.Now(),
                 },
                 {
-                        ID:               "tx_003",
+                        BaseModel:        models.BaseModel{ID: "tx_003", CreatedAt: time.Now().Add(-15 * 24 * time.Hour), UpdatedAt: time.Now()},
                         UserID:           user.ID,
                         Type:             "disbursement",
                         Amount:           2000.0,
@@ -117,8 +111,6 @@ func TestCreditScoreEngine(t *testing.T) {
                         ChainID:          "base",
                         TransactionHash:  "0xghi789",
                         Status:           "confirmed",
-                        CreatedAt:        time.Now().Add(-15 * 24 * time.Hour),
-                        UpdatedAt:        time.Now(),
                 },
         }
         for _, tx := range transactions {
@@ -129,7 +121,7 @@ func TestCreditScoreEngine(t *testing.T) {
         // Create test loans
         loans := []models.Loan{
                 {
-                        ID:           "loan_001",
+                        BaseModel:    models.BaseModel{ID: "loan_001", CreatedAt: time.Now().Add(-30 * 24 * time.Hour), UpdatedAt: time.Now()},
                         UserID:       user.ID,
                         MerchantID:   "merchant_001",
                         Amount:       10000.0,
@@ -138,11 +130,9 @@ func TestCreditScoreEngine(t *testing.T) {
                         Status:       "repaid",
                         DueDate:      time.Now().Add(-5 * 24 * time.Hour),
                         RepaidAt:     &[]time.Time{time.Now().Add(-6 * 24 * time.Hour)}[0],
-                        CreatedAt:    time.Now().Add(-30 * 24 * time.Hour),
-                        UpdatedAt:    time.Now(),
                 },
                 {
-                        ID:           "loan_002",
+                        BaseModel:    models.BaseModel{ID: "loan_002", CreatedAt: time.Now().Add(-20 * 24 * time.Hour), UpdatedAt: time.Now()},
                         UserID:       user.ID,
                         MerchantID:   "merchant_002",
                         Amount:       15000.0,
@@ -150,8 +140,6 @@ func TestCreditScoreEngine(t *testing.T) {
                         Duration:     45,
                         Status:       "active",
                         DueDate:      time.Now().Add(15 * 24 * time.Hour),
-                        CreatedAt:    time.Now().Add(-20 * 24 * time.Hour),
-                        UpdatedAt:    time.Now(),
                 },
         }
         for _, loan := range loans {
@@ -162,12 +150,10 @@ func TestCreditScoreEngine(t *testing.T) {
         // Create test repayments
         repayments := []models.Repayment{
                 {
-                        ID:           "repayment_001",
+                        BaseModel:    models.BaseModel{ID: "repayment_001", CreatedAt: time.Now().Add(-6 * 24 * time.Hour), UpdatedAt: time.Now()},
                         LoanID:       "loan_001",
                         Amount:       10500.0,
                         Status:       "completed",
-                        CreatedAt:    time.Now().Add(-6 * 24 * time.Hour),
-                        UpdatedAt:    time.Now(),
                 },
         }
         for _, repayment := range repayments {
@@ -185,9 +171,7 @@ func TestCreditScoreEngine(t *testing.T) {
         }
 
         // Create credit scoring engine
-        engine := NewCreditScoreEngine(db, &blockchain.Clients{
-                Config: cfg,
-        }, cfg)
+        engine := NewCreditScoreEngine(db, &blockchain.Clients{}, cfg)
 
         // Test credit score calculation
         t.Run("CalculateCreditScore", func(t *testing.T) {
@@ -320,6 +304,7 @@ func TestCreditScoreEngine(t *testing.T) {
         t.Run("GetRecentValidScore", func(t *testing.T) {
                 // Create a valid credit score
                 validScore := models.CreditScore{
+                        BaseModel:    models.BaseModel{ID: "valid_score_001", CreatedAt: time.Now(), UpdatedAt: time.Now()},
                         UserID:       user.ID,
                         Score:        750,
                         PreviousScore: 720,
@@ -327,8 +312,6 @@ func TestCreditScoreEngine(t *testing.T) {
                         Factors:      `{"on_chain_history":85,"repayment_behavior":90,"account_age":70,"external_data":80,"did_verification":90}`,
                         DataSource:   "combined",
                         ValidUntil:   time.Now().Add(15 * 24 * time.Hour), // Valid for 15 more days
-                        CreatedAt:    time.Now(),
-                        UpdatedAt:    time.Now(),
                 }
                 err := db.Create(&validScore).Error
                 assert.NoError(t, err)
@@ -379,12 +362,10 @@ func BenchmarkCreditScoreCalculation(b *testing.B) {
 
         // Create test user
         user := models.User{
-                ID:           "benchmark_user",
+                BaseModel:    models.BaseModel{ID: "benchmark_user", CreatedAt: time.Now().Add(-365 * 24 * time.Hour), UpdatedAt: time.Now()},
                 Email:        "benchmark@example.com",
                 PasswordHash: "hashed_password",
                 IsActive:     true,
-                CreatedAt:    time.Now().Add(-365 * 24 * time.Hour), // 1 year ago
-                UpdatedAt:    time.Now(),
         }
         err = db.Create(&user).Error
         if err != nil {
@@ -394,7 +375,7 @@ func BenchmarkCreditScoreCalculation(b *testing.B) {
         // Create test transactions
         for i := 0; i < 100; i++ {
                 tx := models.Transaction{
-                        ID:              fmt.Sprintf("tx_%d", i),
+                        BaseModel:       models.BaseModel{ID: fmt.Sprintf("tx_%d", i), CreatedAt: time.Now().Add(-time.Duration(i) * 24 * time.Hour), UpdatedAt: time.Now()},
                         UserID:          user.ID,
                         Type:            "deposit",
                         Amount:          float64(i * 100),
@@ -402,8 +383,6 @@ func BenchmarkCreditScoreCalculation(b *testing.B) {
                         ChainID:         "ethereum",
                         TransactionHash: fmt.Sprintf("0x%x", i),
                         Status:          "confirmed",
-                        CreatedAt:       time.Now().Add(-time.Duration(i) * 24 * time.Hour),
-                        UpdatedAt:       time.Now(),
                 }
                 err = db.Create(&tx).Error
                 if err != nil {
@@ -416,7 +395,7 @@ func BenchmarkCreditScoreCalculation(b *testing.B) {
         cfg := &config.Config{}
 
         // Create credit scoring engine
-        engine := NewCreditScoreEngine(db, &blockchain.Clients{Config: cfg}, cfg)
+        engine := NewCreditScoreEngine(db, &blockchain.Clients{}, cfg)
 
         // Benchmark the credit score calculation
         b.ResetTimer()

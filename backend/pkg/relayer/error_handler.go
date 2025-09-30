@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -106,8 +107,7 @@ func (eh *ErrorHandler) HandleError(ctx context.Context, err error, operation st
 		errorCtx.RetryCount = attempt
 		
 		// Try the operation
-		err = retryFunc()
-		if err == nil {
+		if err = retryFunc(); err == nil {
 			// Success
 			cb.OnSuccess()
 			return nil
@@ -128,7 +128,7 @@ func (eh *ErrorHandler) HandleError(ctx context.Context, err error, operation st
 		cb.OnFailure()
 		
 		// Check if we should retry
-		if attempt == eh.maxRetries || !eh.shouldRetry(err, errorCtx) {
+		if attempt == eh.maxRetries || !eh.shouldRetry(errorCtx.LastError, errorCtx) {
 			break
 		}
 		

@@ -9,10 +9,11 @@ import (
 
         "kelo-backend/pkg/config"
 
+        "github.com/ethereum/go-ethereum"
         "github.com/ethereum/go-ethereum/accounts/abi/bind"
         "github.com/ethereum/go-ethereum/common"
+        "github.com/ethereum/go-ethereum/core/types"
         "github.com/ethereum/go-ethereum/ethclient"
-        "github.com/ethereum/go-ethereum/types"
         "github.com/rs/zerolog/log"
 )
 
@@ -178,33 +179,49 @@ func (c *Clients) GetHederaClient() *HederaClient {
 
 // WaitForTransaction waits for a transaction to be confirmed on any EVM chain
 func (c *Clients) WaitForTransaction(ctx context.Context, chainID string, txHash common.Hash) error {
-        var client *ethclient.Client
+	var client *ethclient.Client
 
-        switch strings.ToLower(chainID) {
-        case "ethereum", "1", "11155111":
-                client = c.ethereumClient
-        case "base", "8453", "84531":
-                client = c.baseClient
-        case "arbitrum", "42161", "421614":
-                client = c.arbitrumClient
-        case "avalanche", "43114", "43113":
-                client = c.avalancheClient
-        case "celo", "42220", "44787":
-                client = c.celoClient
-        case "polygon", "137", "80001":
-                client = c.polygonClient
-        case "kava", "2222", "2221":
-                client = c.kavaClient
-        default:
-                return fmt.Errorf("unsupported chain ID: %s", chainID)
-        }
+	switch strings.ToLower(chainID) {
+	case "ethereum", "1", "11155111":
+		client = c.ethereumClient
+	case "base", "8453", "84531":
+		client = c.baseClient
+	case "arbitrum", "42161", "421614":
+		client = c.arbitrumClient
+	case "avalanche", "43114", "43113":
+		client = c.avalancheClient
+	case "celo", "42220", "44787":
+		client = c.celoClient
+	case "polygon", "137", "80001":
+		client = c.polygonClient
+	case "kava", "2222", "2221":
+		client = c.kavaClient
+	default:
+		return fmt.Errorf("unsupported chain ID: %s", chainID)
+	}
 
-        if client == nil {
-                return fmt.Errorf("client not available for chain ID: %s", chainID)
-        }
+	if client == nil {
+		return fmt.Errorf("client not available for chain ID: %s", chainID)
+	}
 
-        _, err := bind.WaitMined(ctx, client, txHash)
-        return err
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			_, err := client.TransactionReceipt(ctx, txHash)
+			if err == nil {
+				return nil // Success
+			}
+			if err == ethereum.NotFound {
+				continue // Transaction not yet mined
+			}
+			return err // Other error
+		}
+	}
 }
 
 // GetBalance returns the balance of an address on any EVM chain

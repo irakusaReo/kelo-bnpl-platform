@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,11 +13,8 @@ import (
 
 	"kelo-backend/pkg/blockchain"
 
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/rs/zerolog/log"
@@ -240,7 +236,7 @@ func (lzc *LayerZeroClient) EstimateFee(ctx context.Context, message *Message) (
 	}
 	
 	// Create LayerZero message for fee estimation
-	lzMessage := &LayerZeroMessage{
+	_ = &LayerZeroMessage{
 		SourceChainID:  sourceChainID,
 		DestChainID:    destChainID,
 		SourceAddress:  sourceAddr,
@@ -254,7 +250,7 @@ func (lzc *LayerZeroClient) EstimateFee(ctx context.Context, message *Message) (
 	
 	// Estimate fee (this would be done via LayerZero API in a real implementation)
 	// For now, return a placeholder fee
-	return big.NewInt(100000000000000000), // 0.1 ETH
+	return big.NewInt(100000000000000000), nil // 0.1 ETH
 }
 
 // GetMessageStatus checks the status of a sent message

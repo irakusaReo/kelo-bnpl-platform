@@ -38,18 +38,12 @@ export interface ContactInfo {
   address?: Address;
 }
 
-export interface AuditFields {
+export interface BaseEntity {
   id: string;
   createdAt: string;
   updatedAt: string;
   createdBy?: string;
   updatedBy?: string;
-}
-
-export interface BaseEntity extends AuditFields {
-  id: string;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface FileUpload {
