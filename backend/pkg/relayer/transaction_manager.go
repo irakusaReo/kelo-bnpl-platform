@@ -2,6 +2,7 @@ package relayer
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"fmt"
 	"math/big"
 	"sync"
@@ -318,7 +319,7 @@ func (tm *TransactionManager) createTransactionData(message *Message) ([]byte, e
 // signTransaction signs a transaction
 func (tm *TransactionManager) signTransaction(tx *types.Transaction) (*types.Transaction, error) {
 	// Sign the transaction
-	signer := types.NewLondonSigner(tx.ChainID())
+	signer := types.NewLondonSigner(tx.ChainId())
 	signedTx, err := types.SignTx(tx, signer, tm.privateKey)
 	if err != nil {
 		return nil, err

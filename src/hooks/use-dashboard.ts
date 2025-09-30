@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { useToast } from '@/hooks/use-toast'
 import type { DashboardStats, Loan, PaymentSchedule, Transaction } from '@/types/dashboard'
+import api from '@/services/api'
 
 export function useDashboard() {
   const [isLoading, setIsLoading] = useState(false)
@@ -15,14 +16,7 @@ export function useDashboard() {
   const fetchDashboardStats = useCallback(async () => {
     setIsLoading(true)
     try {
-      const response = await fetch('/api/analytics/metrics', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-        },
-      })
-
-      const result = await response.json()
-
+      const result = await api.get('/analytics/metrics')
       if (result.success) {
         setStats(result.data)
         return result.data
@@ -35,11 +29,6 @@ export function useDashboard() {
         return null
       }
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'An unexpected error occurred. Please try again.',
-        variant: 'destructive',
-      })
       return null
     } finally {
       setIsLoading(false)
@@ -49,14 +38,7 @@ export function useDashboard() {
   const fetchActiveLoans = useCallback(async () => {
     setIsLoading(true)
     try {
-      const response = await fetch('/api/loans/active', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-        },
-      })
-
-      const result = await response.json()
-
+      const result = await api.get('/loans/active')
       if (result.success) {
         setActiveLoans(result.data)
         return result.data
@@ -69,11 +51,6 @@ export function useDashboard() {
         return []
       }
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'An unexpected error occurred. Please try again.',
-        variant: 'destructive',
-      })
       return []
     } finally {
       setIsLoading(false)
@@ -83,14 +60,7 @@ export function useDashboard() {
   const fetchPaymentSchedule = useCallback(async () => {
     setIsLoading(true)
     try {
-      const response = await fetch('/api/loans/payment/schedule', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-        },
-      })
-
-      const result = await response.json()
-
+      const result = await api.get('/loans/payment/schedule')
       if (result.success) {
         setPaymentSchedule(result.data)
         return result.data
@@ -103,11 +73,6 @@ export function useDashboard() {
         return []
       }
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'An unexpected error occurred. Please try again.',
-        variant: 'destructive',
-      })
       return []
     } finally {
       setIsLoading(false)
@@ -117,14 +82,7 @@ export function useDashboard() {
   const fetchRecentTransactions = useCallback(async () => {
     setIsLoading(true)
     try {
-      const response = await fetch('/api/payments/recent', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-        },
-      })
-
-      const result = await response.json()
-
+      const result = await api.get('/payments/recent')
       if (result.success) {
         setRecentTransactions(result.data)
         return result.data
@@ -137,11 +95,6 @@ export function useDashboard() {
         return []
       }
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'An unexpected error occurred. Please try again.',
-        variant: 'destructive',
-      })
       return []
     } finally {
       setIsLoading(false)
@@ -151,20 +104,11 @@ export function useDashboard() {
   const makePayment = useCallback(async (paymentId: string, amount: number, method: string) => {
     setIsLoading(true)
     try {
-      const response = await fetch('/api/loans/payment', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-        },
-        body: JSON.stringify({
-          paymentId,
-          amount,
-          method,
-        }),
+      const result = await api.post('/loans/payment', {
+        paymentId,
+        amount,
+        method,
       })
-
-      const result = await response.json()
 
       if (result.success) {
         toast({
@@ -181,11 +125,6 @@ export function useDashboard() {
         return null
       }
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'An unexpected error occurred. Please try again.',
-        variant: 'destructive',
-      })
       return null
     } finally {
       setIsLoading(false)

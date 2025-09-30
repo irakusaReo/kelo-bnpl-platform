@@ -2,12 +2,14 @@ package creditscore
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"time"
+
+	"kelo-backend/pkg/utils"
 
 	"github.com/rs/zerolog/log"
 )
@@ -85,15 +87,12 @@ func NewPayslipClient() *PayslipClient {
 
 // GetStatement retrieves M-Pesa statement for a phone number
 func (m *MpesaClient) GetStatement(ctx context.Context, phoneNumber string) (*MpesaStatement, error) {
-	// Authenticate with M-Pesa API
 	if err := m.authenticate(ctx); err != nil {
 		return nil, fmt.Errorf("M-Pesa authentication failed: %w", err)
 	}
 
-	// Get statement for the last 6 months
 	endDate := time.Now()
 	startDate := endDate.AddDate(0, -6, 0)
-
 	url := fmt.Sprintf("%s/mpesa/statement/v1/query", m.baseURL)
 	
 	request := map[string]interface{}{
@@ -103,21 +102,23 @@ func (m *MpesaClient) GetStatement(ctx context.Context, phoneNumber string) (*Mp
 		"transactionType": "ALL",
 	}
 
-	resp, err := m.makeRequest(ctx, "POST", url, request)
+	headers := map[string]string{
+		"Authorization": fmt.Sprintf("Bearer %s", m.authToken),
+		"Content-Type":  "application/json",
+	}
+
+	respBody, err := utils.MakeRequest(ctx, m.client, "POST", url, headers, request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get M-Pesa statement: %w", err)
 	}
 
-	// Parse response
 	var statement MpesaStatement
-	if err := json.Unmarshal(resp, &statement); err != nil {
+	if err := json.Unmarshal(respBody, &statement); err != nil {
 		return nil, fmt.Errorf("failed to parse M-Pesa statement: %w", err)
 	}
 
-	// Calculate totals
 	statement.TotalInflow = 0
 	statement.TotalOutflow = 0
-	
 	for _, tx := range statement.Transactions {
 		if tx.Type == "received" {
 			statement.TotalInflow += tx.Amount
@@ -125,7 +126,6 @@ func (m *MpesaClient) GetStatement(ctx context.Context, phoneNumber string) (*Mp
 			statement.TotalOutflow += tx.Amount
 		}
 	}
-	
 	statement.NetFlow = statement.TotalInflow - statement.TotalOutflow
 	statement.PeriodStart = startDate
 	statement.PeriodEnd = endDate
@@ -140,7 +140,6 @@ func (b *BankClient) GetBankStatement(ctx context.Context, bankName, accountNumb
 		return nil, fmt.Errorf("API key not configured for bank: %s", bankName)
 	}
 
-	// Different banks have different API endpoints
 	var baseURL string
 	switch bankName {
 	case "equity":
@@ -156,45 +155,24 @@ func (b *BankClient) GetBankStatement(ctx context.Context, bankName, accountNumb
 	}
 
 	url := fmt.Sprintf("%s/accounts/%s/statement", baseURL, accountNumber)
-	
-	// Get statement for the last 6 months
 	endDate := time.Now()
 	startDate := endDate.AddDate(0, -6, 0)
-
 	request := map[string]interface{}{
 		"startDate": startDate.Format("2006-01-02"),
 		"endDate":   endDate.Format("2006-01-02"),
 	}
-
-	client := &http.Client{
-		Timeout: 30 * time.Second,
+	headers := map[string]string{
+		"Authorization": fmt.Sprintf("Bearer %s", apiKey),
+		"Content-Type":  "application/json",
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := client.Do(req)
+	respBody, err := utils.MakeRequest(ctx, b.client, "POST", url, headers, request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get bank statement: %w", err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("bank API returned status: %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
 
 	var statement BankStatement
-	if err := json.Unmarshal(body, &statement); err != nil {
+	if err := json.Unmarshal(respBody, &statement); err != nil {
 		return nil, fmt.Errorf("failed to parse bank statement: %w", err)
 	}
 
@@ -212,32 +190,18 @@ func (c *CRBClient) GetCRBReport(ctx context.Context, customerID string) (*CRBRe
 	}
 
 	url := fmt.Sprintf("%s/credit-reports/%s", c.baseURL, customerID)
-
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+	headers := map[string]string{
+		"Authorization": fmt.Sprintf("Bearer %s", c.apiKey),
+		"Content-Type":  "application/json",
 	}
 
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.client.Do(req)
+	respBody, err := utils.MakeRequest(ctx, c.client, "GET", url, headers, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get CRB report: %w", err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("CRB API returned status: %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
 
 	var report CRBReport
-	if err := json.Unmarshal(body, &report); err != nil {
+	if err := json.Unmarshal(respBody, &report); err != nil {
 		return nil, fmt.Errorf("failed to parse CRB report: %w", err)
 	}
 
@@ -254,7 +218,6 @@ func (p *PayslipClient) GetPayslip(ctx context.Context, employer, employeeID, pe
 		return nil, fmt.Errorf("API key not configured for employer: %s", employer)
 	}
 
-	// Different payroll systems have different API endpoints
 	var baseURL string
 	switch employer {
 	case "safaricom":
@@ -268,32 +231,18 @@ func (p *PayslipClient) GetPayslip(ctx context.Context, employer, employeeID, pe
 	}
 
 	url := fmt.Sprintf("%s/employees/%s/payslips/%s", baseURL, employeeID, period)
-
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+	headers := map[string]string{
+		"Authorization": fmt.Sprintf("Bearer %s", apiKey),
+		"Content-Type":  "application/json",
 	}
 
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := p.client.Do(req)
+	respBody, err := utils.MakeRequest(ctx, p.client, "GET", url, headers, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get payslip: %w", err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("payslip API returned status: %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
 
 	var payslip Payslip
-	if err := json.Unmarshal(body, &payslip); err != nil {
+	if err := json.Unmarshal(respBody, &payslip); err != nil {
 		return nil, fmt.Errorf("failed to parse payslip: %w", err)
 	}
 
@@ -307,33 +256,19 @@ func (p *PayslipClient) GetPayslip(ctx context.Context, employer, employeeID, pe
 // authenticate authenticates with M-Pesa API
 func (m *MpesaClient) authenticate(ctx context.Context) error {
 	if m.authToken != "" {
-		// Check if token is still valid (tokens typically expire after 1 hour)
 		return nil
 	}
 
 	url := fmt.Sprintf("%s/oauth/v1/generate?grant_type=client_credentials", m.baseURL)
-
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create auth request: %w", err)
+	auth := base64.StdEncoding.EncodeToString([]byte(m.apiKey + ":" + m.secret))
+	headers := map[string]string{
+		"Authorization": "Basic " + auth,
+		"Content-Type":  "application/json",
 	}
 
-	req.SetBasicAuth(m.apiKey, m.secret)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := m.client.Do(req)
+	respBody, err := utils.MakeRequest(ctx, m.client, "GET", url, headers, nil)
 	if err != nil {
 		return fmt.Errorf("failed to authenticate: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("authentication failed with status: %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read auth response: %w", err)
 	}
 
 	var authResponse struct {
@@ -341,51 +276,18 @@ func (m *MpesaClient) authenticate(ctx context.Context) error {
 		ExpiresIn   int    `json:"expires_in"`
 	}
 
-	if err := json.Unmarshal(body, &authResponse); err != nil {
+	if err := json.Unmarshal(respBody, &authResponse); err != nil {
 		return fmt.Errorf("failed to parse auth response: %w", err)
 	}
 
 	m.authToken = authResponse.AccessToken
 
-	// Set up token expiration (in a real implementation, you'd refresh automatically)
 	go func() {
 		time.Sleep(time.Duration(authResponse.ExpiresIn) * time.Second)
 		m.authToken = ""
 	}()
 
 	return nil
-}
-
-// makeRequest makes an authenticated request to M-Pesa API
-func (m *MpesaClient) makeRequest(ctx context.Context, method, url string, data interface{}) ([]byte, error) {
-	var body io.Reader
-	if data != nil {
-		jsonData, err := json.Marshal(data)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal request data: %w", err)
-		}
-		body = io.NopCloser(io.MultiReader(body, io.NewReader(string(jsonData))))
-	}
-
-	req, err := http.NewRequestWithContext(ctx, method, url, body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", m.authToken))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := m.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API returned status: %d", resp.StatusCode)
-	}
-
-	return io.ReadAll(resp.Body)
 }
 
 // AddBankAPIKey adds an API key for a specific bank
@@ -402,27 +304,17 @@ func (p *PayslipClient) AddEmployerAPIKey(employer, apiKey string) {
 
 // ValidateBankAccount validates bank account details
 func (b *BankClient) ValidateBankAccount(ctx context.Context, bankName, accountNumber string) (bool, error) {
-	// This is a placeholder implementation
-	// In a real implementation, you would call the bank's validation API
-	
-	// Simulate validation
 	if len(accountNumber) < 8 {
 		return false, nil
 	}
-	
 	return true, nil
 }
 
 // ValidateEmployer validates employer details
 func (p *PayslipClient) ValidateEmployer(ctx context.Context, employer string) (bool, error) {
-	// This is a placeholder implementation
-	// In a real implementation, you would check if the employer is registered
-	
-	// Simulate validation
 	if employer == "" {
 		return false, nil
 	}
-	
 	return true, nil
 }
 
@@ -433,7 +325,6 @@ func (m *MpesaClient) GetTransactionHistory(ctx context.Context, phoneNumber str
 		return nil, err
 	}
 	
-	// Filter transactions by date range
 	cutoffDate := time.Now().AddDate(0, 0, -days)
 	var filteredTransactions []MpesaTransaction
 	
@@ -452,18 +343,13 @@ func (c *CRBClient) GetCreditScoreFromCRB(ctx context.Context, customerID string
 	if err != nil {
 		return 0, err
 	}
-	
 	return report.Score, nil
 }
 
 // GetEmploymentHistory retrieves employment history from payslips
 func (p *PayslipClient) GetEmploymentHistory(ctx context.Context, employer, employeeID string, months int) ([]Payslip, error) {
-	// This is a placeholder implementation
-	// In a real implementation, you would retrieve multiple payslips
-	
 	var payslips []Payslip
 	
-	// Simulate retrieving payslips for the last N months
 	for i := 0; i < months; i++ {
 		period := time.Now().AddDate(0, -i, 0).Format("2006-01")
 		payslip, err := p.GetPayslip(ctx, employer, employeeID, period)

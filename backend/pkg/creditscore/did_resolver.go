@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"kelo-backend/pkg/blockchain"
-
 	"github.com/rs/zerolog/log"
 )
 
