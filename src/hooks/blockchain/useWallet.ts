@@ -5,6 +5,9 @@ import { useToast } from '@/hooks/use-toast'
 import { useUser } from '@/contexts/UserContext'
 import { WalletConnection, WalletTransaction, WalletProvider, NetworkType } from '@/types/blockchain/wallet'
 import { NETWORKS, WALLET_EVENTS } from '@/utils/constants/blockchain'
+import { ethers } from 'ethers'
+import { EthereumProvider } from '@walletconnect/ethereum-provider'
+import CoinbaseWalletSDK from '@coinbase/wallet-sdk'
 
 interface WalletState {
   connection: WalletConnection | null
@@ -12,6 +15,7 @@ interface WalletState {
   isLoading: boolean
   error: string | null
   currentProvider: WalletProvider | null
+  providerInstance: any | null
 }
 
 export function useWallet() {
@@ -21,6 +25,7 @@ export function useWallet() {
     isLoading: false,
     error: null,
     currentProvider: null,
+    providerInstance: null,
   })
   
   const { toast } = useToast()
@@ -58,19 +63,20 @@ export function useWallet() {
 
     try {
       let connection: WalletConnection | null = null
+      let providerInstance: any | null = null
 
       switch (provider) {
         case 'metamask':
-          connection = await connectMetaMask()
+          ({ connection, providerInstance } = await connectMetaMask())
           break
         case 'hashpack':
-          connection = await connectHashPack()
+          ({ connection, providerInstance } = await connectHashPack())
           break
         case 'walletconnect':
-          connection = await connectWalletConnect()
+          ({ connection, providerInstance } = await connectWalletConnect())
           break
         case 'coinbase':
-          connection = await connectCoinbase()
+          ({ connection, providerInstance } = await connectCoinbase())
           break
         default:
           throw new Error('Unsupported wallet provider')
@@ -102,6 +108,7 @@ export function useWallet() {
         setState(prev => ({
           ...prev,
           connection,
+          providerInstance,
           currentProvider: provider,
           isLoading: false,
           error: null,
@@ -113,7 +120,7 @@ export function useWallet() {
         })
 
         // Setup event listeners
-        setupEventListeners(provider)
+        setupEventListeners(provider, providerInstance)
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to connect wallet'
@@ -131,21 +138,22 @@ export function useWallet() {
     }
   }, [toast, supabase, user])
 
-  const connectMetaMask = useCallback(async (): Promise<WalletConnection> => {
+  const connectMetaMask = useCallback(async (): Promise<{ connection: WalletConnection, providerInstance: any }> => {
     if (!window.ethereum) {
       throw new Error('MetaMask is not installed')
     }
 
-    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
-    const chainId = await window.ethereum.request({ method: 'eth_chainId' })
-    const balance = await window.ethereum.request({
+    const provider = window.ethereum
+    const accounts = await provider.request({ method: 'eth_requestAccounts' })
+    const chainId = await provider.request({ method: 'eth_chainId' })
+    const balance = await provider.request({
       method: 'eth_getBalance',
       params: [accounts[0], 'latest'],
     })
 
     const network = Object.values(NETWORKS).find(n => n.chainId === parseInt(chainId, 16))
 
-    return {
+    const connection: WalletConnection = {
       address: accounts[0],
       chainId: parseInt(chainId, 16),
       network: network?.name || 'Unknown',
@@ -153,17 +161,20 @@ export function useWallet() {
       isConnected: true,
       provider: 'metamask',
     }
+
+    return { connection, providerInstance: provider }
   }, [])
 
-  const connectHashPack = useCallback(async (): Promise<WalletConnection> => {
+  const connectHashPack = useCallback(async (): Promise<{ connection: WalletConnection, providerInstance: any }> => {
     if (!window.hashpack) {
       throw new Error('HashPack is not installed')
     }
 
-    const pairingData = await window.hashpack.connect()
-    const accountInfo = await window.hashpack.getAccountInfo()
+    const hashpack = window.hashpack
+    const pairingData = await hashpack.connect()
+    const accountInfo = await hashpack.getAccountInfo()
     
-    return {
+    const connection: WalletConnection = {
       address: accountInfo.accountIds[0],
       chainId: 295, // Hedera mainnet
       network: 'Hedera Mainnet',
@@ -171,22 +182,78 @@ export function useWallet() {
       isConnected: true,
       provider: 'hashpack',
     }
+
+    return { connection, providerInstance: hashpack }
   }, [])
 
-  const connectWalletConnect = useCallback(async (): Promise<WalletConnection> => {
-    // WalletConnect implementation would go here
-    throw new Error('WalletConnect not implemented yet')
+  const connectWalletConnect = useCallback(async (): Promise<{ connection: WalletConnection, providerInstance: any }> => {
+    const mainChainId = 1; // Ethereum Mainnet as the default required chain
+    const optionalChainIds = Object.values(NETWORKS)
+      .map(n => n.chainId)
+      .filter(id => id !== mainChainId && ![295, 296, 297].includes(id));
+
+    const provider = await EthereumProvider.init({
+      projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '',
+      chains: [mainChainId],
+      optionalChains: optionalChainIds,
+      showQrModal: true,
+    })
+
+    await provider.enable()
+    const web3Provider = new ethers.BrowserProvider(provider)
+    const signer = await web3Provider.getSigner()
+    const address = await signer.getAddress()
+    const chainId = (await web3Provider.getNetwork()).chainId
+    const balance = await web3Provider.getBalance(address)
+
+    const network = Object.values(NETWORKS).find(n => n.chainId === Number(chainId))
+
+    const connection: WalletConnection = {
+      address,
+      chainId: Number(chainId),
+      network: network?.name || 'Unknown',
+      balance: balance.toString(),
+      isConnected: true,
+      provider: 'walletconnect',
+    }
+
+    return { connection, providerInstance: provider }
   }, [])
 
-  const connectCoinbase = useCallback(async (): Promise<WalletConnection> => {
-    // Coinbase Wallet implementation would go here
-    throw new Error('Coinbase Wallet not implemented yet')
+  const connectCoinbase = useCallback(async (): Promise<{ connection: WalletConnection, providerInstance: any }> => {
+    const sdk = new CoinbaseWalletSDK({
+      appName: 'Kelo BNPL',
+      appLogoUrl: `${window.location.origin}/logo.png`,
+    })
+    const provider = sdk.makeWeb3Provider(NETWORKS.ethereum.rpcUrl, NETWORKS.ethereum.chainId)
+
+    const accounts = await provider.request({ method: 'eth_requestAccounts' })
+    const web3Provider = new ethers.BrowserProvider(provider)
+    const signer = await web3Provider.getSigner()
+    const address = await signer.getAddress()
+    const chainId = (await web3Provider.getNetwork()).chainId
+    const balance = await web3Provider.getBalance(address)
+
+    const network = Object.values(NETWORKS).find(n => n.chainId === Number(chainId))
+
+    const connection: WalletConnection = {
+      address,
+      chainId: Number(chainId),
+      network: network?.name || 'Unknown',
+      balance: balance.toString(),
+      isConnected: true,
+      provider: 'coinbase',
+    }
+
+    return { connection, providerInstance: provider }
   }, [])
 
   const disconnectWallet = useCallback(async () => {
     try {
       if (state.currentProvider === 'hashpack' && window.hashpack) {
         await window.hashpack.disconnect()
+      } else if (state.currentProvider === 'walletconnect' && state.providerInstance) {
+        await state.providerInstance.disconnect()
       }
 
       setState(prev => ({
@@ -194,6 +261,7 @@ export function useWallet() {
         connection: null,
         currentProvider: null,
         transactions: [],
+        providerInstance: null,
       }))
 
       toast({
@@ -203,35 +271,67 @@ export function useWallet() {
     } catch (error) {
       console.error('Error disconnecting wallet:', error)
     }
-  }, [state.currentProvider, toast])
+  }, [state.currentProvider, state.providerInstance, toast])
 
   const switchNetwork = useCallback(async (networkType: NetworkType) => {
-    if (!state.connection || !state.currentProvider) {
+    if (!state.connection || !state.currentProvider || !state.providerInstance) {
       throw new Error('No wallet connected')
     }
 
     try {
       const network = NETWORKS[networkType]
+      if (state.connection.chainId === network.chainId) {
+        toast({ title: 'Network is already active' })
+        return
+      }
       
-      if (state.currentProvider === 'metamask') {
-        await window.ethereum.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: `0x${network.chainId.toString(16)}` }],
-        })
+      const provider = state.providerInstance;
+
+      if (['metamask', 'walletconnect', 'coinbase'].includes(state.currentProvider)) {
+        try {
+          await provider.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: `0x${network.chainId.toString(16)}` }],
+          })
+        } catch (switchError: any) {
+          // This error code indicates that the chain has not been added to MetaMask.
+          if (switchError.code === 4902) {
+            try {
+              await provider.request({
+                method: 'wallet_addEthereumChain',
+                params: [
+                  {
+                    chainId: `0x${network.chainId.toString(16)}`,
+                    chainName: network.name,
+                    rpcUrls: [network.rpcUrl],
+                    nativeCurrency: {
+                      name: network.currency,
+                      symbol: network.currency,
+                      decimals: 18,
+                    },
+                    blockExplorerUrls: [network.blockExplorer],
+                  },
+                ],
+              })
+            } catch (addError) {
+              throw new Error("Failed to add new network.")
+            }
+          } else {
+            throw switchError
+          }
+        }
       } else if (state.currentProvider === 'hashpack') {
         // HashPack network switching would go here
         throw new Error('Network switching not implemented for HashPack yet')
       }
 
       // Update connection state
-      setState(prev => ({
-        ...prev,
-        connection: prev.connection ? {
-          ...prev.connection,
-          chainId: network.chainId,
-          network: network.name,
-        } : null,
-      }))
+      const newConnection = {
+        ...state.connection,
+        chainId: network.chainId,
+        network: network.name,
+      }
+      setState(prev => ({...prev, connection: newConnection }))
 
       toast({
         title: 'Network Switched',
@@ -245,10 +345,10 @@ export function useWallet() {
         variant: 'destructive',
       })
     }
-  }, [state.connection, state.currentProvider, toast])
+  }, [state.connection, state.currentProvider, state.providerInstance, toast])
 
   const sendTransaction = useCallback(async (to: string, amount: string) => {
-    if (!state.connection || !state.currentProvider) {
+    if (!state.connection || !state.currentProvider || !state.providerInstance) {
       throw new Error('No wallet connected')
     }
 
@@ -257,17 +357,17 @@ export function useWallet() {
     try {
       let txHash: string
 
-      if (state.currentProvider === 'metamask') {
+      if (['metamask', 'walletconnect', 'coinbase'].includes(state.currentProvider)) {
+        const web3Provider = new ethers.BrowserProvider(state.providerInstance)
+        const signer = await web3Provider.getSigner()
+
         const transaction = {
           to,
-          value: amount,
-          from: state.connection.address,
+          value: ethers.parseEther(amount),
         }
 
-        txHash = await window.ethereum.request({
-          method: 'eth_sendTransaction',
-          params: [transaction],
-        })
+        const txResponse = await signer.sendTransaction(transaction)
+        txHash = txResponse.hash
       } else {
         throw new Error('Transaction not implemented for this wallet type')
       }
@@ -307,39 +407,39 @@ export function useWallet() {
       
       throw error
     }
-  }, [state.connection, state.currentProvider, toast])
+  }, [state.connection, state.currentProvider, state.providerInstance, toast])
 
-  const setupEventListeners = useCallback((provider: WalletProvider) => {
-    if (provider === 'metamask' && window.ethereum) {
-      window.ethereum.on('accountsChanged', (accounts: string[]) => {
-        if (accounts.length === 0) {
-          disconnectWallet()
-        } else {
-          setState(prev => ({
-            ...prev,
-            connection: prev.connection ? {
-              ...prev.connection,
-              address: accounts[0],
-            } : null,
-          }))
-        }
-      })
-
-      window.ethereum.on('chainChanged', (chainId: string) => {
-        const network = Object.values(NETWORKS).find(n => n.chainId === parseInt(chainId, 16))
+  const setupEventListeners = useCallback((provider: WalletProvider, providerInstance: any) => {
+    const handleAccountsChanged = (accounts: string[]) => {
+      if (accounts.length === 0) {
+        disconnectWallet()
+      } else {
         setState(prev => ({
           ...prev,
           connection: prev.connection ? {
             ...prev.connection,
-            chainId: parseInt(chainId, 16),
-            network: network?.name || 'Unknown',
+            address: accounts[0],
           } : null,
         }))
-      })
+      }
+    }
 
-      window.ethereum.on('disconnect', () => {
-        disconnectWallet()
-      })
+    const handleChainChanged = (chainId: string) => {
+      const network = Object.values(NETWORKS).find(n => n.chainId === parseInt(chainId, 16))
+      setState(prev => ({
+        ...prev,
+        connection: prev.connection ? {
+          ...prev.connection,
+          chainId: parseInt(chainId, 16),
+          network: network?.name || 'Unknown',
+        } : null,
+      }))
+    }
+
+    if (providerInstance?.on) {
+      providerInstance.on('accountsChanged', handleAccountsChanged)
+      providerInstance.on('chainChanged', handleChainChanged)
+      providerInstance.on('disconnect', disconnectWallet)
     }
   }, [disconnectWallet])
 
