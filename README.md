@@ -1,6 +1,6 @@
 # 🚀 Kelo BNPL Platform
 
-A modern, blockchain-powered Buy Now Pay Later (BNPL) platform designed for the Kenyan market, integrating multi-chain blockchain technology with traditional financial services.
+A modern, blockchain-powered Buy Now Pay Later (BNPL) platform designed for the Kenyan market, integrating multi-chain blockchain technology with the powerful, open-source Supabase backend.
 
 ## 🌟 Project Overview
 
@@ -23,17 +23,14 @@ The platform integrates multiple blockchain networks (Ethereum, Hedera, Solana, 
 - **🎯 Lucide React** - Beautiful icon library
 - **🔄 TanStack Query** - Powerful data synchronization
 - **🐻 Zustand** - Lightweight state management
-- **🔐 NextAuth.js** - Authentication solution
 - **📊 Recharts** - Data visualization library
 - **🌐 Socket.IO** - Real-time communication
 
 ### Backend Technologies
-- **🐹 Go 1.21** - High-performance backend language
-- **🌐 Gin Framework** - HTTP web framework
-- **🗄️ PostgreSQL** - Primary database
+- ** supabase** - The open-source Firebase alternative. Handles Database, Authentication, and more.
+- **🐹 Go 1.21** - High-performance backend language for custom business logic (e.g., credit scoring).
+- **🌐 Gin Framework** - HTTP web framework for the Go services.
 - **🔴 Redis** - Caching and session management
-- **🔍 Prisma ORM** - Database toolkit
-- **🔐 JWT Authentication** - Secure token-based auth
 - **📊 Prometheus** - Metrics and monitoring
 - **📝 ZeroLog** - Structured logging
 
@@ -57,7 +54,7 @@ The platform integrates multiple blockchain networks (Ethereum, Hedera, Solana, 
 - **🚀 Docker Compose** - Multi-container orchestration
 - **🔧 GitHub Actions** - CI/CD pipeline
 - **📈 Grafana** - Monitoring and visualization
-- **🐘 PostgreSQL** - Production database
+- ** supabase** - Production database and backend services.
 - **🔴 Redis** - In-memory data store
 - **📋 Fluentd** - Log aggregation
 - **🛡️ Nginx** - Reverse proxy and load balancer
@@ -67,47 +64,54 @@ The platform integrates multiple blockchain networks (Ethereum, Hedera, Solana, 
 ### Prerequisites
 - Docker and Docker Compose installed
 - Git for version control
-- Node.js 18+ (for local development without Docker)
+- A Supabase account and a new project created.
 
 ### Development Setup with Docker
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/your-org/kelo-bnpl-platform.git
-   cd kelo-bnpl-platform
-   ```
+1.  **Clone the repository**
+    ```bash
+    git clone https://github.com/your-org/kelo-bnpl-platform.git
+    cd kelo-bnpl-platform
+    ```
 
-2. **Configure environment variables**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
+2.  **Configure Environment Variables**
+    -   First, get your project credentials from the Supabase dashboard under `Project Settings` > `API`.
+    -   Copy the example environment file:
+        ```bash
+        cp .env.example .env
+        ```
+    -   Edit the new `.env` file with your Supabase credentials.
 
-3. **Start the development environment**
-   ```bash
-   # Start all services
-   docker-compose up -d
-   
-   # Or start with build
-   docker-compose up -d --build
-   ```
+3.  **Set up the Supabase Database**
+    -   In the Supabase dashboard, navigate to the **SQL Editor**.
+    -   Copy the entire contents of `db/supabase_schema.sql` and run it.
+    -   Copy the entire contents of `db/migration_01_alter_profiles.sql` and run it.
+    -   Copy the entire contents of `db/migration_02_create_transactions.sql` and run it.
 
-4. **Verify services are running**
-   ```bash
-   # Check container status
-   docker-compose ps
-   
-   # View logs
-   docker-compose logs -f
-   ```
+4.  **Start the development environment**
+    ```bash
+    # Start all services
+    docker-compose up -d
 
-5. **Access the applications**
-   - **Frontend**: http://localhost:3000
-   - **Backend API**: http://localhost:8080
-   - **API Documentation**: http://localhost:8080/swagger/index.html
-   - **Prisma Studio**: http://localhost:5555
-   - **Redis Commander**: http://localhost:8082
-   - **Mailhog**: http://localhost:8025
+    # Or start with a fresh build
+    docker-compose up -d --build
+    ```
+
+5.  **Verify services are running**
+    ```bash
+    # Check container status
+    docker-compose ps
+
+    # View logs
+    docker-compose logs -f
+    ```
+
+6.  **Access the applications**
+    -   **Frontend**: http://localhost:3000
+    -   **Backend API**: http://localhost:8080
+    -   **API Documentation**: http://localhost:8080/swagger/index.html
+    -   **Redis Commander**: http://localhost:8082
+    -   **Mailhog**: http://localhost:8025
 
 ### Service Descriptions
 
@@ -116,9 +120,7 @@ The platform integrates multiple blockchain networks (Ethereum, Hedera, Solana, 
 | Frontend | 3000 | Next.js application |
 | Backend API | 8080 | Go REST API |
 | Credit Scoring API | 8081 | AI-powered credit scoring |
-| PostgreSQL | 5432 | Primary database |
 | Redis | 6379 | Cache and session store |
-| Prisma Studio | 5555 | Database management UI |
 | Redis Commander | 8082 | Redis management UI |
 | Mailhog | 8025 | Email testing interface |
 
@@ -142,48 +144,12 @@ docker-compose logs -f frontend
 docker-compose exec backend bash
 docker-compose exec frontend bash
 
-# Database operations
-docker-compose exec postgres psql -U kelo_user -d kelo_db
+# Access Redis
 docker-compose exec redis redis-cli
 
 # Clean up (remove containers, networks, volumes)
 docker-compose down -v
 ```
-
-### Local Development (Without Docker)
-
-1. **Install dependencies**
-   ```bash
-   # Frontend dependencies
-   npm install
-   
-   # Backend dependencies
-   cd backend
-   go mod download
-   cd ..
-   ```
-
-2. **Set up database**
-   ```bash
-   # Generate Prisma client
-   npx prisma generate
-   
-   # Push schema to database
-   npx prisma db push
-   
-   # Run migrations (if any)
-   npx prisma migrate dev
-   ```
-
-3. **Start services**
-   ```bash
-   # Start backend (in separate terminal)
-   cd backend
-   go run ./cmd/api/main.go
-   
-   # Start frontend (in another terminal)
-   npm run dev
-   ```
 
 ## 🏗️ Project Structure
 
@@ -197,45 +163,23 @@ kelo-bnpl-platform/
 │   │   ├── merchant/             # Merchant portal
 │   │   └── admin/                # Admin panel
 │   ├── components/               # React components
-│   │   ├── ui/                   # shadcn/ui components
-│   │   ├── blockchain/           # Blockchain components
-│   │   ├── charts/               # Data visualization
-│   │   ├── forms/                # Form components
-│   │   ├── layout/               # Layout components
-│   │   ├── merchant/             # Merchant components
-│   │   └── tables/               # Data tables
+│   ├── contexts/                 # React Context providers
 │   ├── hooks/                    # Custom React hooks
 │   ├── lib/                      # Utility libraries
-│   ├── services/                 # API services
-│   ├── store/                    # State management
-│   ├── types/                    # TypeScript definitions
-│   └── utils/                    # Utility functions
+│   └── types/                    # TypeScript definitions
 ├── backend/                      # Go backend source
 │   ├── cmd/                      # Command-line applications
-│   │   ├── api/                  # Main API server
-│   │   └── relayer/              # Cross-chain relayer
 │   ├── pkg/                      # Go packages
-│   │   ├── blockchain/           # Blockchain clients
-│   │   ├── config/               # Configuration management
-│   │   ├── creditscore/          # Credit scoring engine
-│   │   ├── logger/               # Logging utilities
-│   │   ├── models/               # Data models
-│   │   └── relayer/              # Cross-chain relayer
 │   ├── api/                      # API documentation
-│   ├── database/                 # Database schemas
 │   └── go.mod                    # Go module definition
 ├── contracts/                    # Smart contracts
-│   ├── evm/                      # Ethereum contracts
-│   ├── hedera/                   # Hedera contracts
-│   ├── solana/                   # Solana programs
-│   ├── aptos/                    # Aptos modules
-│   └── layerzero/                # LayerZero adapters
-├── prisma/                       # Database toolkit
-│   └── schema.prisma             # Database schema
+├── db/                           # Supabase database schemas
+│   ├── supabase_schema.sql       # Main schema file
+│   └── ...migrations             # Migration files
 ├── .github/                      # GitHub configuration
 │   └── workflows/                # CI/CD workflows
 ├── docker-compose.yml            # Development environment
-├── docker-compose.prod.yml      # Production environment
+├── docker-compose.prod.yml       # Production environment
 ├── Dockerfile.backend            # Backend container
 ├── Dockerfile.frontend           # Frontend container
 └── README.md                     # This file
@@ -245,32 +189,28 @@ kelo-bnpl-platform/
 
 ### Environment Variables
 
-Key environment variables to configure:
+Key environment variables to configure in your `.env` file:
 
 ```bash
-# Database
-DATABASE_URL=postgresql://kelo_user:kelo_password@postgres:5432/kelo_db
+# Supabase
+# Get these from your Supabase project's API settings
+SUPABASE_URL=YOUR_SUPABASE_URL
+SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY=YOUR_SUPABASE_SERVICE_ROLE_KEY
+SUPABASE_JWT_SECRET=YOUR_SUPABASE_JWT_SECRET
 
 # Redis
 REDIS_URL=redis://redis:6379
 
-# JWT
-JWT_SECRET=your-super-secret-jwt-key-change-in-production
-
-# NextAuth
-NEXTAUTH_SECRET=your-nextauth-secret-key
-NEXTAUTH_URL=http://localhost:3000
-
 # Blockchain
-BLOCKCHAIN_NETWORK=ethereum
 ETHEREUM_RPC_URL=https://mainnet.infura.io/v3/YOUR-INFURA-PROJECT-ID
-HEDERA_NETWORK=testnet
 HEDERA_ACCOUNT_ID=0.0.12345
 HEDERA_PRIVATE_KEY=your-hedera-private-key
 
-# APIs
+# APIs (Public for frontend)
 NEXT_PUBLIC_API_URL=http://localhost:8080
-NEXT_PUBLIC_WS_URL=ws://localhost:8080
+NEXT_PUBLIC_SUPABASE_URL=${SUPABASE_URL}
+NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
 ```
 
 ### Blockchain Configuration
@@ -308,7 +248,7 @@ docker-compose -f docker-compose.prod.yml up -d --scale backend=3 --scale fronte
    ```bash
    # Build backend
    docker build -f Dockerfile.backend -t kelo-backend:latest .
-   
+
    # Build frontend
    docker build -f Dockerfile.frontend -t kelo-frontend:latest .
    ```
@@ -317,27 +257,28 @@ docker-compose -f docker-compose.prod.yml up -d --scale backend=3 --scale fronte
    ```bash
    docker tag kelo-backend:latest your-registry/kelo-backend:latest
    docker tag kelo-frontend:latest your-registry/kelo-frontend:latest
-   
+
    docker push your-registry/kelo-backend:latest
    docker push your-registry/kelo-frontend:latest
    ```
 
 3. **Configure production environment**
-   - Set up PostgreSQL and Redis
-   - Configure load balancer
-   - Set up monitoring and logging
-   - Configure SSL certificates
+   - Set up Supabase for production use.
+   - Configure a production-ready Redis instance.
+   - Configure load balancer (Nginx is included in docker-compose.prod.yml).
+   - Set up monitoring and logging.
+   - Configure SSL certificates.
 
 ## 🔒 Security Features
 
-- **JWT Authentication**: Secure token-based authentication
-- **Role-Based Access Control**: User, merchant, and admin roles
-- **Blockchain Security**: Smart contract audits and secure key management
-- **Data Encryption**: Encryption at rest and in transit
-- **Input Validation**: Comprehensive input sanitization
-- **Rate Limiting**: API rate limiting and DDoS protection
-- **Secure Headers**: Security headers and CSP policies
-- **Audit Logging**: Comprehensive audit trails
+- **Supabase Auth**: Built-in authentication with email, social logins, and JWTs.
+- **Row-Level Security (RLS)**: Fine-grained access control policies at the database level.
+- **Blockchain Security**: Smart contract audits and secure key management.
+- **Data Encryption**: Encryption at rest and in transit.
+- **Input Validation**: Comprehensive input sanitization.
+- **Rate Limiting**: API rate limiting and DDoS protection.
+- **Secure Headers**: Security headers and CSP policies.
+- **Audit Logging**: Comprehensive audit trails via Supabase logs.
 
 ## 📊 Monitoring & Observability
 
@@ -370,4 +311,4 @@ For support and questions:
 
 ---
 
-Built with ❤️ for the Kenyan fintech ecosystem. Powered by blockchain technology.
+Built with ❤️ for the Kenyan fintech ecosystem. Powered by Supabase and blockchain technology.

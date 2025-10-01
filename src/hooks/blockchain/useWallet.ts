@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { useToast } from '@/hooks/use-toast'
+import { useUser } from '@/contexts/UserContext'
 import { WalletConnection, WalletTransaction, WalletProvider, NetworkType } from '@/types/blockchain/wallet'
 import { NETWORKS, WALLET_EVENTS } from '@/utils/constants/blockchain'
 
@@ -23,6 +24,7 @@ export function useWallet() {
   })
   
   const { toast } = useToast()
+  const { supabase, user } = useUser()
 
   // Check if wallet is already connected on mount
   useEffect(() => {
@@ -75,6 +77,28 @@ export function useWallet() {
       }
 
       if (connection) {
+        // Update the user's profile with the wallet address
+        if (supabase && user) {
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ wallet_address: connection.address })
+            .eq('id', user.id)
+
+          if (updateError) {
+            toast({
+              title: 'Profile Update Failed',
+              description: 'Could not save wallet address to your profile.',
+              variant: 'destructive',
+            })
+            console.error("Error updating profile with wallet address:", updateError)
+          } else {
+            toast({
+              title: 'Profile Updated',
+              description: 'Your wallet address has been saved.',
+            })
+          }
+        }
+
         setState(prev => ({
           ...prev,
           connection,
@@ -105,7 +129,7 @@ export function useWallet() {
         variant: 'destructive',
       })
     }
-  }, [toast])
+  }, [toast, supabase, user])
 
   const connectMetaMask = useCallback(async (): Promise<WalletConnection> => {
     if (!window.ethereum) {
