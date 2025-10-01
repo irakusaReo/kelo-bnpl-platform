@@ -26,6 +26,7 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\""
   },
   "dependencies": {
+    "@coinbase/wallet-sdk": "^4.3.7",
     "@hookform/resolvers": "^5.1.1",
     "@prisma/client": "^6.11.1",
     "@radix-ui/react-accordion": "^1.2.11",
@@ -58,12 +59,14 @@
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.58.0",
     "@tanstack/react-query": "^5.82.0",
+    "@walletconnect/ethereum-provider": "^2.21.10",
     "axios": "^1.10.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.6.0",
+    "ethers": "^6.15.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.525.0",
     "next": "15.3.5",
@@ -89,6 +92,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4.1.13",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

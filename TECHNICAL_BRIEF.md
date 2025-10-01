@@ -200,7 +200,7 @@ The platform implements a **multi-chain architecture** to leverage the strengths
   }
   ```
 
-#### 3. Solana Integration
+#### 9. Solana Integration
 - **Role**: High-performance blockchain for microtransactions
 - **Use Cases**:
   - Micro-payment processing
@@ -223,7 +223,7 @@ The platform implements a **multi-chain architecture** to leverage the strengths
   }
   ```
 
-#### 4. Aptos Integration
+#### 10. Aptos Integration
 - **Role**: Next-gen blockchain for advanced DeFi operations
 - **Use Cases**:
   - Advanced DeFi primitives

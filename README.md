@@ -11,7 +11,7 @@ Kelo is a comprehensive BNPL platform that enables users to:
 - **Manage finances** through a unified dashboard
 - **Leverage blockchain** for transparent, secure transactions
 
-The platform integrates multiple blockchain networks (Ethereum, Hedera, Solana, Aptos) through LayerZero cross-chain technology, providing users with unparalleled flexibility and security.
+The platform integrates multiple blockchain networks (Ethereum, Base, Arbitrum, Avalanche, Celo, Polygon, Kava, Hedera, Solana, Aptos) through LayerZero cross-chain technology, providing users with unparalleled flexibility and security.
 
 ## 🛠️ Technology Stack
 
@@ -192,20 +192,52 @@ kelo-bnpl-platform/
 Key environment variables to configure in your `.env` file:
 
 ```bash
-# Supabase
-# Get these from your Supabase project's API settings
-SUPABASE_URL=YOUR_SUPABASE_URL
-SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
-SUPABASE_SERVICE_ROLE_KEY=YOUR_SUPABASE_SERVICE_ROLE_KEY
-SUPABASE_JWT_SECRET=YOUR_SUPABASE_JWT_SECRET
+# Backend API Configuration
+PORT=8080
+ENVIRONMENT=development
+LOG_LEVEL=info
 
-# Redis
-REDIS_URL=redis://redis:6379
+# Supabase Configuration
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_JWT_SECRET=
 
-# Blockchain
-ETHEREUM_RPC_URL=https://mainnet.infura.io/v3/YOUR-INFURA-PROJECT-ID
-HEDERA_ACCOUNT_ID=0.0.12345
-HEDERA_PRIVATE_KEY=your-hedera-private-key
+# Blockchain Configuration
+RELAYER_PRIVATE_KEY=
+
+# EVM Chains
+ETHEREUM_RPC=
+ETHEREUM_LIQUIDITY_POOL=
+BASE_RPC=
+BASE_LIQUIDITY_POOL=
+ARBITRUM_RPC=
+ARBITRUM_LIQUIDITY_POOL=
+AVALANCHE_RPC=
+AVALANCHE_LIQUIDITY_POOL=
+CELO_RPC=
+CELO_LIQUIDITY_POOL=
+POLYGON_RPC=
+POLYGON_LIQUIDITY_POOL=
+KAVA_RPC=
+KAVA_LIQUIDITY_POOL=
+
+# Other Chains
+HEDERA_NETWORK=testnet
+HEDERA_CONTRACT_ADDRESS=
+SOLANA_RPC=
+APTOS_RPC=
+
+# LayerZero Configuration
+LAYERZERO_ENDPOINT=
+LAYERZERO_API_KEY=
+
+# Other Services
+MPESA_API_KEY=
+MPESA_SECRET=
+REDIS_URL=redis://localhost:6379
+
+# Other Settings
+MAX_RETRIES=3
 
 # APIs (Public for frontend)
 NEXT_PUBLIC_API_URL=http://localhost:8080
