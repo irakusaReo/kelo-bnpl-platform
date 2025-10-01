@@ -18,9 +18,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
-	gormlogger "gorm.io/gorm/logger"
+	"github.com/supabase/postgrest-go"
 )
 
 func main() {
@@ -33,27 +31,13 @@ func main() {
 	// Initialize logger
 	logger.Init(cfg.LogLevel)
 
-	// Connect to database
-	db, err := gorm.Open(postgres.Open(cfg.DatabaseURL), &gorm.Config{
-		Logger: gormlogger.Default.LogMode(gormlogger.Silent),
-	})
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to connect to database")
+	// Initialize Supabase client
+	supabaseClient := postgrest.NewClient(cfg.SupabaseURL, "public", nil)
+	if supabaseClient.ClientError != nil {
+		log.Fatal().Err(supabaseClient.ClientError).Msg("Failed to initialize Supabase client")
 	}
+	supabaseClient.TokenAuth(cfg.SupabaseServiceRoleKey)
 
-	// Auto migrate database models
-	if err := db.AutoMigrate(
-		&models.User{},
-		&models.Merchant{},
-		&models.Loan{},
-		&models.Repayment{},
-		&models.LiquidityPool{},
-		&models.LiquidityProvider{},
-		&models.CreditScore{},
-		&models.Transaction{},
-	); err != nil {
-		log.Fatal().Err(err).Msg("Failed to migrate database")
-	}
 
 	// Initialize blockchain clients
 	blockchainClients, err := blockchain.NewClients(cfg)
@@ -62,11 +46,15 @@ func main() {
 	}
 
 	// Initialize services
-	creditScoreService := creditscore.NewCreditScoreService(db, blockchainClients, cfg)
-	relayerService := relayer.NewService(cfg, db, blockchainClients)
+	creditScoreService := creditscore.NewCreditScoreService(supabaseClient, blockchainClients, cfg)
+	relayerService, err := relayer.NewTrustedRelayer(cfg, blockchainClients)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to initialize relayer service")
+	}
 
 	// Initialize handlers
 	creditScoreHandler := creditscore.NewCreditScoreHandler(creditScoreService)
+	relayerHandler := relayer.NewHandler(relayerService)
 
 	// Initialize Gin router
 	if cfg.Environment == "production" {
@@ -80,6 +68,7 @@ func main() {
 
 	// Setup routes
 	creditScoreHandler.RegisterRoutes(router)
+	relayerHandler.RegisterRoutes(router)
 
 	// Create HTTP server
 	srv := &http.Server{
@@ -135,7 +124,7 @@ func corsMiddleware() gin.HandlerFunc {
 	}
 }
 
-func startBackgroundServices(relayerService *relayer.Service, creditScoreService *creditscore.CreditScoreService) {
+func startBackgroundServices(relayerService *relayer.TrustedRelayer, creditScoreService *creditscore.CreditScoreService) {
 	// Start credit scoring background job
 	go func() {
 		ticker := time.NewTicker(6 * time.Hour) // Run every 6 hours
@@ -151,18 +140,6 @@ func startBackgroundServices(relayerService *relayer.Service, creditScoreService
 	go func() {
 		if err := relayerService.Start(); err != nil {
 			log.Error().Err(err).Msg("Failed to start relayer service")
-		}
-	}()
-
-	// Start blockchain monitoring
-	go func() {
-		ticker := time.NewTicker(1 * time.Minute) // Check every minute
-		defer ticker.Stop()
-
-		for range ticker.C {
-			if err := relayerService.MonitorBlockchainEvents(); err != nil {
-				log.Error().Err(err).Msg("Failed to monitor blockchain events")
-			}
 		}
 	}()
 

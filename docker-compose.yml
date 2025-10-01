@@ -1,27 +1,6 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:15-alpine
-    container_name: kelo-postgres
-    environment:
-      POSTGRES_DB: kelo_db
-      POSTGRES_USER: kelo_user
-      POSTGRES_PASSWORD: kelo_password
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
-    networks:
-      - kelo-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U kelo_user -d kelo_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   # Redis for caching and sessions
   redis:
     image: redis:7-alpine
@@ -44,13 +23,13 @@ services:
       context: .
       dockerfile: Dockerfile.backend
     container_name: kelo-backend
+    env_file:
+      - .env
     environment:
       - NODE_ENV=development
-      - DATABASE_URL=postgres://kelo_user:kelo_password@postgres:5432/kelo_db?sslmode=disable
       - REDIS_URL=redis://redis:6379
       - PORT=8080
       - LOG_LEVEL=debug
-      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
       - BLOCKCHAIN_NETWORK=ethereum
       - ETHEREUM_RPC_URL=https://mainnet.infura.io/v3/YOUR-INFURA-PROJECT-ID
       - HEDERA_NETWORK=testnet
@@ -60,8 +39,6 @@ services:
       - "8080:8080"
       - "8081:8081"  # Credit scoring API
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
     networks:
@@ -83,19 +60,19 @@ services:
       context: .
       dockerfile: Dockerfile.frontend
     container_name: kelo-frontend
+    env_file:
+      - .env
     environment:
       - NODE_ENV=development
       - NEXT_PUBLIC_API_URL=http://localhost:8080
       - NEXT_PUBLIC_WS_URL=ws://localhost:8080
-      - DATABASE_URL=postgresql://kelo_user:kelo_password@postgres:5432/kelo_db
-      - NEXTAUTH_SECRET=your-nextauth-secret-key
-      - NEXTAUTH_URL=http://localhost:3000
+      # These are loaded from the .env file now
+      - NEXT_PUBLIC_SUPABASE_URL=${SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
     ports:
       - "3000:3000"
     depends_on:
       backend:
-        condition: service_healthy
-      postgres:
         condition: service_healthy
     networks:
       - kelo-network
@@ -110,25 +87,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-
-  # Prisma Studio for database management
-  prisma-studio:
-    image: node:18-alpine
-    container_name: kelo-prisma-studio
-    working_dir: /app
-    environment:
-      - DATABASE_URL=postgresql://kelo_user:kelo_password@postgres:5432/kelo_db
-    ports:
-      - "5555:5555"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - kelo-network
-    volumes:
-      - .:/app
-      - /app/node_modules
-    command: npx prisma studio
 
   # Redis Commander for Redis management
   redis-commander:
@@ -155,8 +113,6 @@ services:
       - kelo-network
 
 volumes:
-  postgres_data:
-    driver: local
   redis_data:
     driver: local
 

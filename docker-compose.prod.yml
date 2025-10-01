@@ -1,26 +1,6 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:15-alpine
-    container_name: kelo-postgres-prod
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
-    networks:
-      - kelo-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
   # Redis for caching and sessions
   redis:
     image: redis:7-alpine
@@ -43,11 +23,12 @@ services:
     container_name: kelo-backend-prod
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=require
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - PORT=8080
       - LOG_LEVEL=${LOG_LEVEL}
-      - JWT_SECRET=${JWT_SECRET}
       - BLOCKCHAIN_NETWORK=${BLOCKCHAIN_NETWORK}
       - ETHEREUM_RPC_URL=${ETHEREUM_RPC_URL}
       - HEDERA_NETWORK=${HEDERA_NETWORK}
@@ -57,8 +38,6 @@ services:
       - "8080:8080"
       - "8081:8081"
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
     networks:
@@ -78,10 +57,8 @@ services:
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-      - NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
-      - NEXTAUTH_URL=${NEXTAUTH_URL}
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
     ports:
       - "3000:3000"
     depends_on:
@@ -163,8 +140,6 @@ services:
     restart: unless-stopped
 
 volumes:
-  postgres_data:
-    driver: local
   redis_data:
     driver: local
   prometheus_data:

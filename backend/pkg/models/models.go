@@ -2,175 +2,66 @@ package models
 
 import (
 	"time"
-
-	"kelo-backend/pkg/utils"
-
-	"gorm.io/gorm"
 )
 
-// BaseModel defines the common fields for all models
-type BaseModel struct {
-	ID        string    `json:"id" gorm:"primaryKey"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+// Profile corresponds to the 'profiles' table in Supabase.
+// It holds all user-related information.
+type Profile struct {
+	ID            string    `json:"id"`
+	Role          string    `json:"role,omitempty"`
+	WalletAddress string    `json:"wallet_address,omitempty"`
+	CreatedAt     time.Time `json:"created_at,omitempty"`
+	UpdatedAt     time.Time `json:"updated_at,omitempty"`
+	FirstName     string    `json:"first_name,omitempty"`
+	LastName      string    `json:"last_name,omitempty"`
+	Phone         string    `json:"phone,omitempty"`
+	DID           string    `json:"did,omitempty"`
 }
 
-// BeforeCreate is a GORM hook that generates a unique ID before creating a record
-func (base *BaseModel) BeforeCreate(tx *gorm.DB) error {
-	if base.ID == "" {
-		base.ID = utils.GenerateID()
-	}
-	return nil
-}
-
-// User represents a platform user
-type User struct {
-	BaseModel
-	Email        string `json:"email" gorm:"uniqueIndex;not null"`
-	PasswordHash string `json:"-" gorm:"not null"`
-	FirstName    string `json:"first_name"`
-	LastName     string `json:"last_name"`
-	Phone        string `json:"phone"`
-	DID          string `json:"did"` // Decentralized Identifier
-	WalletAddress string `json:"wallet_address"`
-	IsActive     bool   `json:"is_active" gorm:"default:true"`
-
-	// Relations
-	Loans        []Loan        `json:"loans" gorm:"foreignKey:UserID"`
-	CreditScores []CreditScore `json:"credit_scores" gorm:"foreignKey:UserID"`
-	Transactions []Transaction `json:"transactions" gorm:"foreignKey:UserID"`
-}
-
-// Merchant represents a merchant on the platform
-type Merchant struct {
-	BaseModel
-	UserID       string `json:"user_id" gorm:"not null"`
-	BusinessName string `json:"business_name" gorm:"not null"`
-	BusinessType string `json:"business_type"`
-	Description  string `json:"description"`
-	Website      string `json:"website"`
-	Address      string `json:"address"`
-	City         string `json:"city"`
-	Country      string `json:"country"`
-	PostalCode   string `json:"postal_code"`
-	Phone        string `json:"phone"`
-	Email        string `json:"email"`
-	DID          string `json:"did"` // Merchant DID
-	WalletAddress string `json:"wallet_address"`
-	IsVerified   bool   `json:"is_verified" gorm:"default:false"`
-	IsActive     bool   `json:"is_active" gorm:"default:true"`
-
-	// Relations
-	User  User   `json:"user" gorm:"foreignKey:UserID"`
-	Loans []Loan `json:"loans" gorm:"foreignKey:MerchantID"`
-}
-
-// Loan represents a loan agreement
+// Loan corresponds to the 'loans' table in Supabase.
 type Loan struct {
-	BaseModel
-	UserID          string     `json:"user_id" gorm:"not null"`
-	MerchantID      string     `json:"merchant_id" gorm:"not null"`
-	Amount          float64    `json:"amount" gorm:"type:decimal(20,8);not null"`
-	InterestRate    float64    `json:"interest_rate" gorm:"type:decimal(10,4);not null"`
-	Duration        int        `json:"duration" gorm:"not null"` // in days
-	Status          string     `json:"status" gorm:"not null;default:'pending'"` // pending, approved, active, repaid, defaulted
-	Purpose         string     `json:"purpose"`
-	TokenID         string     `json:"token_id"` // NFT token ID on Hedera
-	ChainID         string     `json:"chain_id"` // Blockchain chain ID
-	TransactionHash string     `json:"transaction_hash"`
+	ID              string     `json:"id"`
+	OrderID         string     `json:"order_id"`
+	UserID          string     `json:"user_id"`
+	PrincipalAmount float64    `json:"principal_amount"`
+	InterestRate    float64    `json:"interest_rate"`
+	Status          string     `json:"status"`
 	DueDate         time.Time  `json:"due_date"`
-	ApprovedAt      *time.Time `json:"approved_at"`
-	DisbursedAt     *time.Time `json:"disbursed_at"`
-	RepaidAt        *time.Time `json:"repaid_at"`
-
-	// Relations
-	User       User        `json:"user" gorm:"foreignKey:UserID"`
-	Merchant   Merchant    `json:"merchant" gorm:"foreignKey:MerchantID"`
-	Repayments []Repayment `json:"repayments" gorm:"foreignKey:LoanID"`
+	CreatedAt       time.Time  `json:"created_at,omitempty"`
+	UpdatedAt       time.Time  `json:"updated_at,omitempty"`
+	RepaidAt        *time.Time `json:"repaid_at,omitempty"` // Used for repayment behavior score
 }
 
-// Repayment represents a loan repayment
+// Repayment corresponds to the 'repayments' table in Supabase.
 type Repayment struct {
-	BaseModel
-	LoanID          string  `json:"loan_id" gorm:"not null"`
-	Amount          float64 `json:"amount" gorm:"type:decimal(20,8);not null"`
-	TransactionHash string  `json:"transaction_hash"`
-	ChainID         string  `json:"chain_id"`
-	Status          string  `json:"status" gorm:"not null;default:'pending'"` // pending, completed, failed
-	PaymentMethod   string  `json:"payment_method"` // mpesa, bank_transfer, crypto
-	ReferenceNumber string  `json:"reference_number"`
-
-	// Relations
-	Loan Loan `json:"loan" gorm:"foreignKey:LoanID"`
+	ID            string    `json:"id"`
+	LoanID        string    `json:"loan_id"`
+	Amount        float64    `json:"amount"`
+	RepaymentDate time.Time `json:"repayment_date"`
+	// The 'status' field from the old model is not in the Supabase schema for this table.
 }
 
-// LiquidityPool represents a liquidity pool
-type LiquidityPool struct {
-	BaseModel
-	TokenAddress      string  `json:"token_address" gorm:"not null"`
-	TokenSymbol       string  `json:"token_symbol" gorm:"not null"`
-	ChainID           string  `json:"chain_id" gorm:"not null"`
-	TotalLiquidity    float64 `json:"total_liquidity" gorm:"type:decimal(20,8);default:0"`
-	TotalDeposits     float64 `json:"total_deposits" gorm:"type:decimal(20,8);default:0"`
-	TotalWithdrawals  float64 `json:"total_withdrawals" gorm:"type:decimal(20,8);default:0"`
-	TotalInterestPaid float64 `json:"total_interest_paid" gorm:"type:decimal(20,8);default:0"`
-	InterestRate      float64 `json:"interest_rate" gorm:"type:decimal(10,4);not null"`
-	IsActive          bool    `json:"is_active" gorm:"default:true"`
-	ContractAddress   string  `json:"contract_address"`
-
-	// Relations
-	Providers []LiquidityProvider `json:"providers" gorm:"foreignKey:PoolID"`
-}
-
-// LiquidityProvider represents a liquidity provider
-type LiquidityProvider struct {
-	BaseModel
-	PoolID           string    `json:"pool_id" gorm:"not null"`
-	UserID           string    `json:"user_id" gorm:"not null"`
-	TotalDeposited   float64   `json:"total_deposited" gorm:"type:decimal(20,8);default:0"`
-	TotalWithdrawn   float64   `json:"total_withdrawn" gorm:"type:decimal(20,8);default:0"`
-	InterestEarned   float64   `json:"interest_earned" gorm:"type:decimal(20,8);default:0"`
-	IsActive         bool      `json:"is_active" gorm:"default:true"`
-	LastInterestCalc time.Time `json:"last_interest_calc"`
-
-	// Relations
-	Pool LiquidityPool `json:"pool" gorm:"foreignKey:PoolID"`
-	User User          `json:"user" gorm:"foreignKey:UserID"`
-}
-
-// CreditScore represents a user's credit score
-type CreditScore struct {
-	BaseModel
-	UserID        string    `json:"user_id" gorm:"not null"`
-	Score         int       `json:"score" gorm:"not null"`
-	PreviousScore int       `json:"previous_score"`
-	MaxScore      int       `json:"max_score" gorm:"default:850"`
-	Factors       string    `json:"factors"` // JSON string of scoring factors
-	UpdateReason  string    `json:"update_reason"`
-	DataSource    string    `json:"data_source"` // on_chain, off_chain, combined
-	ValidUntil    time.Time `json:"valid_until"`
-
-	// Relations
-	User User `json:"user" gorm:"foreignKey:UserID"`
-}
-
-// Transaction represents a blockchain transaction
+// Transaction is a simplified struct for decoding on-chain transaction history.
+// In this context, it is not a direct 1:1 mapping to a table but represents
+// the data needed for credit scoring from a transaction history source.
 type Transaction struct {
-	BaseModel
-	UserID          string  `json:"user_id"`
-	Type            string  `json:"type" gorm:"not null"` // deposit, withdrawal, disbursement, repayment
-	Amount          float64 `json:"amount" gorm:"type:decimal(20,8);not null"`
-	TokenAddress    string  `json:"token_address"`
-	TokenSymbol     string  `json:"token_symbol"`
-	ChainID         string  `json:"chain_id"`
-	TransactionHash string  `json:"transaction_hash" gorm:"not null"`
-	BlockNumber     uint64  `json:"block_number"`
-	Status          string  `json:"status" gorm:"not null;default:'pending'"` // pending, confirmed, failed
-	GasUsed         uint64  `json:"gas_used"`
-	GasPrice        float64 `json:"gas_price" gorm:"type:decimal(20,8)"`
-	Fee             float64 `json:"fee" gorm:"type:decimal(20,8)"`
-	Metadata        string  `json:"metadata"` // JSON string for additional data
+	ID        string    `json:"id"`
+	UserID    string    `json:"user_id"`
+	Type      string    `json:"type"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+}
 
-	// Relations
-	User User `json:"user" gorm:"foreignKey:UserID"`
+// CreditScore corresponds to the 'credit_scores' table in Supabase.
+type CreditScore struct {
+	ID            string    `json:"id,omitempty"`
+	UserID        string    `json:"user_id"`
+	Score         int       `json:"score"`
+	PreviousScore int       `json:"previous_score,omitempty"`
+	MaxScore      int       `json:"max_score"`
+	Factors       string    `json:"factors"` // JSON string
+	UpdateReason  string    `json:"update_reason"`
+	DataSource    string    `json:"data_source"`
+	ValidUntil    time.Time `json:"valid_until"`
+	CreatedAt     time.Time `json:"created_at,omitempty"`
 }

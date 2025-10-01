@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"kelo-backend/pkg/middleware"
 	"kelo-backend/pkg/utils"
 
 	"github.com/gin-gonic/gin"
@@ -27,7 +28,7 @@ func NewCreditScoreHandler(service *CreditScoreService) *CreditScoreHandler {
 // RegisterRoutes registers the credit score routes with a gin router
 func (h *CreditScoreHandler) RegisterRoutes(router *gin.Engine) {
 	api := router.Group("/api/v1/creditscore")
-	api.Use(h.AuthMiddleware()) // Apply auth middleware to the group
+	api.Use(middleware.AuthMiddleware) // Apply auth middleware to the group
 
 	// Credit score routes
 	api.GET("/:userID", h.GetCreditScore)
@@ -369,32 +370,4 @@ func (h *CreditScoreHandler) GetHCSLoans(c *gin.Context) {
 		"generated_at": time.Now(),
 	}
 	utils.WriteSuccessResponse(c, response)
-}
-
-// AuthMiddleware creates a gin middleware for authentication and authorization
-func (h *CreditScoreHandler) AuthMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		token := c.GetHeader("Authorization")
-		if token == "" {
-			utils.WriteErrorResponse(c, http.StatusUnauthorized, "Authorization token required")
-			c.Abort()
-			return
-		}
-
-		if len(token) > 7 && token[:7] == "Bearer " {
-			token = token[7:]
-		}
-
-		if token == "" {
-			utils.WriteErrorResponse(c, http.StatusUnauthorized, "Invalid authorization token")
-			c.Abort()
-			return
-		}
-
-		// In a real implementation, you would validate the JWT and extract user info
-		ctx := context.WithValue(c.Request.Context(), "userID", "user_id_from_token")
-		c.Request = c.Request.WithContext(ctx)
-
-		c.Next()
-	}
 }

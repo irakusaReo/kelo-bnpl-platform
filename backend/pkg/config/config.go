@@ -11,36 +11,37 @@ import (
 )
 
 type Config struct {
-        Port                 int
-        Environment          string
-        DatabaseURL          string
-        JWTSecret            string
-        LogLevel             string
-        HederaNetwork        string
-        HederaContractAddress string
-        LayerZeroEndpoint    string
-        LayerZeroAPIKey      string
-        EthereumRPC          string
-        EthereumLiquidityPool string
-        BaseRPC              string
-        BaseLiquidityPool     string
-        ArbitrumRPC          string
-        ArbitrumLiquidityPool string
-        AvalancheRPC         string
+        Port                   int
+        Environment            string
+        LogLevel               string
+        SupabaseURL            string
+        SupabaseServiceRoleKey string
+        SupabaseJWTSecret      string
+        HederaNetwork          string
+        HederaContractAddress  string
+        LayerZeroEndpoint      string
+        LayerZeroAPIKey        string
+        EthereumRPC            string
+        EthereumLiquidityPool  string
+        BaseRPC                string
+        BaseLiquidityPool      string
+        ArbitrumRPC            string
+        ArbitrumLiquidityPool  string
+        AvalancheRPC           string
         AvalancheLiquidityPool string
-        CeloRPC              string
-        CeloLiquidityPool    string
-        PolygonRPC           string
-        PolygonLiquidityPool  string
-        KavaRPC              string
-        KavaLiquidityPool    string
-        SolanaRPC            string
-        AptosRPC             string
-        MpesaAPIKey          string
-        MpesaSecret          string
-        RedisURL             string
-        RelayerPrivateKey    string
-        MaxRetries           int
+        CeloRPC                string
+        CeloLiquidityPool      string
+        PolygonRPC             string
+        PolygonLiquidityPool   string
+        KavaRPC                string
+        KavaLiquidityPool      string
+        SolanaRPC              string
+        AptosRPC               string
+        MpesaAPIKey            string
+        MpesaSecret            string
+        RedisURL               string
+        RelayerPrivateKey      string
+        MaxRetries             int
 }
 
 func Load() (*Config, error) {
@@ -61,44 +62,48 @@ func Load() (*Config, error) {
 
         // Read configuration
         cfg := &Config{
-                Port:                 getEnvAsInt("PORT", 8080),
-                Environment:          getEnv("ENVIRONMENT", "development"),
-                DatabaseURL:          getEnv("DATABASE_URL", ""),
-                JWTSecret:            getEnv("JWT_SECRET", ""),
-                LogLevel:             getEnv("LOG_LEVEL", "info"),
-                HederaNetwork:        getEnv("HEDERA_NETWORK", "testnet"),
-                HederaContractAddress: getEnv("HEDERA_CONTRACT_ADDRESS", ""),
-                LayerZeroEndpoint:    getEnv("LAYERZERO_ENDPOINT", ""),
-                LayerZeroAPIKey:      getEnv("LAYERZERO_API_KEY", ""),
-                EthereumRPC:          getEnv("ETHEREUM_RPC", ""),
-                EthereumLiquidityPool: getEnv("ETHEREUM_LIQUIDITY_POOL", ""),
-                BaseRPC:              getEnv("BASE_RPC", ""),
-                BaseLiquidityPool:     getEnv("BASE_LIQUIDITY_POOL", ""),
-                ArbitrumRPC:          getEnv("ARBITRUM_RPC", ""),
-                ArbitrumLiquidityPool: getEnv("ARBITRUM_LIQUIDITY_POOL", ""),
-                AvalancheRPC:         getEnv("AVALANCHE_RPC", ""),
+                Port:                   getEnvAsInt("PORT", 8080),
+                Environment:            getEnv("ENVIRONMENT", "development"),
+                LogLevel:               getEnv("LOG_LEVEL", "info"),
+                SupabaseURL:            getEnv("SUPABASE_URL", ""),
+                SupabaseServiceRoleKey: getEnv("SUPABASE_SERVICE_ROLE_KEY", ""),
+                SupabaseJWTSecret:      getEnv("SUPABASE_JWT_SECRET", ""),
+                HederaNetwork:          getEnv("HEDERA_NETWORK", "testnet"),
+                HederaContractAddress:  getEnv("HEDERA_CONTRACT_ADDRESS", ""),
+                LayerZeroEndpoint:      getEnv("LAYERZERO_ENDPOINT", ""),
+                LayerZeroAPIKey:        getEnv("LAYERZERO_API_KEY", ""),
+                EthereumRPC:            getEnv("ETHEREUM_RPC", ""),
+                EthereumLiquidityPool:  getEnv("ETHEREUM_LIQUIDITY_POOL", ""),
+                BaseRPC:                getEnv("BASE_RPC", ""),
+                BaseLiquidityPool:      getEnv("BASE_LIQUIDITY_POOL", ""),
+                ArbitrumRPC:            getEnv("ARBITRUM_RPC", ""),
+                ArbitrumLiquidityPool:  getEnv("ARBITRUM_LIQUIDITY_POOL", ""),
+                AvalancheRPC:           getEnv("AVALANCHE_RPC", ""),
                 AvalancheLiquidityPool: getEnv("AVALANCHE_LIQUIDITY_POOL", ""),
-                CeloRPC:              getEnv("CELO_RPC", ""),
-                CeloLiquidityPool:    getEnv("CELO_LIQUIDITY_POOL", ""),
-                PolygonRPC:           getEnv("POLYGON_RPC", ""),
-                PolygonLiquidityPool:  getEnv("POLYGON_LIQUIDITY_POOL", ""),
-                KavaRPC:              getEnv("KAVA_RPC", ""),
-                KavaLiquidityPool:    getEnv("KAVA_LIQUIDITY_POOL", ""),
-                SolanaRPC:            getEnv("SOLANA_RPC", ""),
-                AptosRPC:             getEnv("APTOS_RPC", ""),
-                MpesaAPIKey:          getEnv("MPESA_API_KEY", ""),
-                MpesaSecret:          getEnv("MPESA_SECRET", ""),
-                RedisURL:             getEnv("REDIS_URL", ""),
-                RelayerPrivateKey:    getEnv("RELAYER_PRIVATE_KEY", ""),
-                MaxRetries:           getEnvAsInt("MAX_RETRIES", 3),
+                CeloRPC:                getEnv("CELO_RPC", ""),
+                CeloLiquidityPool:      getEnv("CELO_LIQUIDITY_POOL", ""),
+                PolygonRPC:             getEnv("POLYGON_RPC", ""),
+                PolygonLiquidityPool:   getEnv("POLYGON_LIQUIDITY_POOL", ""),
+                KavaRPC:                getEnv("KAVA_RPC", ""),
+                KavaLiquidityPool:      getEnv("KAVA_LIQUIDITY_POOL", ""),
+                SolanaRPC:              getEnv("SOLANA_RPC", ""),
+                AptosRPC:               getEnv("APTOS_RPC", ""),
+                MpesaAPIKey:            getEnv("MPESA_API_KEY", ""),
+                MpesaSecret:            getEnv("MPESA_SECRET", ""),
+                RedisURL:               getEnv("REDIS_URL", ""),
+                RelayerPrivateKey:      getEnv("RELAYER_PRIVATE_KEY", ""),
+                MaxRetries:             getEnvAsInt("MAX_RETRIES", 3),
         }
 
         // Validate required configuration
-        if cfg.DatabaseURL == "" {
-                return nil, fmt.Errorf("DATABASE_URL is required")
+        if cfg.SupabaseURL == "" {
+                return nil, fmt.Errorf("SUPABASE_URL is required")
         }
-        if cfg.JWTSecret == "" {
-                return nil, fmt.Errorf("JWT_SECRET is required")
+        if cfg.SupabaseServiceRoleKey == "" {
+                return nil, fmt.Errorf("SUPABASE_SERVICE_ROLE_KEY is required")
+        }
+        if cfg.SupabaseJWTSecret == "" {
+                return nil, fmt.Errorf("SUPABASE_JWT_SECRET is required")
         }
 
         return cfg, nil
