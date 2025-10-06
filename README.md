@@ -7,6 +7,7 @@ A modern, blockchain-powered Buy Now Pay Later (BNPL) platform designed for the 
 Kelo is a comprehensive BNPL platform that enables users to:
 - **Access instant loans** with flexible repayment terms
 - **Stake cryptocurrency** as collateral for better loan terms
+- **Merchants can also participate** in liquidity pools to earn returns.
 - **Make purchases** at partner merchants using BNPL
 - **Manage finances** through a unified dashboard
 - **Leverage blockchain** for transparent, secure transactions
