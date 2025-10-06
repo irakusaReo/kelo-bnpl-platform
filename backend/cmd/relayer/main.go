@@ -19,8 +19,7 @@ import (
 func main() {
 	// Parse command line flags
 	var (
-		configPath = flag.String("config", "", "Path to configuration file")
-		version    = flag.Bool("version", false, "Show version information")
+		version = flag.Bool("version", false, "Show version information")
 	)
 	flag.Parse()
 
@@ -36,9 +35,7 @@ func main() {
 	}
 
 	// Initialize logger
-	if err := logger.Initialize(cfg.LogLevel); err != nil {
-		log.Fatal().Err(err).Msg("Failed to initialize logger")
-	}
+	logger.Init(cfg.LogLevel)
 
 	log.Info().
 		Str("environment", cfg.Environment).

@@ -184,7 +184,7 @@ func (eh *ErrorHandler) shouldRetry(err error, ctx *ErrorContext) bool {
 	}
 	
 	// Check error type
-	switch err := err.(type) {
+	switch err.(type) {
 	case *TemporaryError:
 		return true
 	case *RateLimitError:
@@ -230,30 +230,23 @@ func NewCircuitBreaker(name string, maxFailures int, resetTimeout time.Duration)
 
 // Allow checks if the circuit breaker allows the operation
 func (cb *CircuitBreaker) Allow() bool {
-	cb.mutex.RLock()
-	defer cb.mutex.RUnlock()
-	
+	cb.mutex.Lock()
+	defer cb.mutex.Unlock()
+
 	if cb.state == CircuitClosed {
 		return true
 	}
-	
+
 	if cb.state == CircuitOpen {
 		if time.Since(cb.lastFailure) > cb.resetTimeout {
-			// Move to half-open state
-			cb.mutex.RUnlock()
-			cb.mutex.Lock()
-			defer cb.mutex.Unlock()
-			
-			if cb.state == CircuitOpen {
-				cb.state = CircuitHalfOpen
-				cb.failures = 0
-				log.Info().Str("circuit_breaker", cb.name).Msg("Circuit breaker moved to half-open state")
-			}
+			cb.state = CircuitHalfOpen
+			cb.failures = 0
+			log.Info().Str("circuit_breaker", cb.name).Msg("Circuit breaker moved to half-open state")
 			return true
 		}
 		return false
 	}
-	
+
 	// Half-open state - allow one attempt
 	return true
 }

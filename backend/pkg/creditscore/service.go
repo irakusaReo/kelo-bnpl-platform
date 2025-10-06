@@ -2,6 +2,7 @@ package creditscore
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -10,7 +11,8 @@ import (
 	"kelo-backend/pkg/models"
 
 	"github.com/rs/zerolog/log"
-	"github.com/supabase/postgrest-go"
+	"github.com/supabase-community/postgrest-go"
+	"github.com/supabase-community/supabase-go"
 )
 
 // CreditScoreService provides high-level credit scoring services
@@ -19,7 +21,7 @@ type CreditScoreService struct {
 	didResolver  *DIDResolver
 	hcsAnalyzer  *HCSAnalyzer
 	externalAPIs *ExternalAPIs
-	client       *postgrest.Client
+	client       *supabase.Client
 	blockchain   *blockchain.Clients
 	config       *config.Config
 }
@@ -43,11 +45,6 @@ type CreditScoreReport struct {
 	HCSAnalysis      *HCSAnalytics       `json:"hcs_analysis,omitempty"`
 	RiskAssessment   *RiskAssessment     `json:"risk_assessment,omitempty"`
 	LoanEligibility  *LoanEligibility    `json:"loan_eligibility,omitempty"`
-}
-
-// HCSAnalytics is a placeholder for Hedera Consensus Service analytics.
-type HCSAnalytics struct {
-	RiskScore float64 `json:"risk_score"`
 }
 
 // OnChainAnalysis represents on-chain behavior analysis
@@ -176,7 +173,7 @@ type EligibilityFactor struct {
 }
 
 // NewCreditScoreService creates a new credit score service instance
-func NewCreditScoreService(client *postgrest.Client, blockchain *blockchain.Clients, cfg *config.Config) *CreditScoreService {
+func NewCreditScoreService(client *supabase.Client, blockchain *blockchain.Clients, cfg *config.Config) *CreditScoreService {
 	engine := NewCreditScoreEngine(client, blockchain, cfg)
 
 	service := &CreditScoreService{
@@ -211,9 +208,12 @@ func (s *CreditScoreService) GenerateCreditScoreReport(ctx context.Context, user
 
 	// Get user data
 	var user models.Profile
-	err = s.client.From("profiles").Select("*", "exact", false).Single().Eq("id", userID).Execute(&user)
+	data, _, err := s.client.From("profiles").Select("*", "exact", false).Single().Eq("id", userID).Execute()
 	if err != nil {
 		return nil, fmt.Errorf("user not found: %w", err)
+	}
+	if err := json.Unmarshal(data, &user); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal user profile: %w", err)
 	}
 
 	// Create basic report
@@ -304,9 +304,12 @@ func (s *CreditScoreService) generateOnChainAnalysis(ctx context.Context, user *
 
 	// Get user's blockchain transactions
 	var transactions []models.Transaction
-	err := s.client.From("transactions").Select("*", "exact", false).Eq("user_id", user.ID).Execute(&transactions)
+	data, _, err := s.client.From("transactions").Select("*", "exact", false).Eq("user_id", user.ID).Execute()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get transactions: %w", err)
+	}
+	if err := json.Unmarshal(data, &transactions); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal transactions: %w", err)
 	}
 
 	analysis := &OnChainAnalysis{
@@ -722,9 +725,12 @@ func (s *CreditScoreService) UpdateUserCreditScore(ctx context.Context, userID s
 // GetCreditScoreHistory gets the credit score history for a user
 func (s *CreditScoreService) GetCreditScoreHistory(ctx context.Context, userID string, limit int) ([]models.CreditScore, error) {
 	var scores []models.CreditScore
-	err := s.client.From("credit_scores").Select("*", "exact", false).Eq("user_id", userID).Order("created_at", &postgrest.OrderOpts{Ascending: false}).Limit(limit).Execute(&scores)
+	data, _, err := s.client.From("credit_scores").Select("*", "exact", false).Eq("user_id", userID).Order("created_at", &postgrest.OrderOpts{Ascending: false}).Limit(limit, "").Execute()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get credit score history: %w", err)
+	}
+	if err := json.Unmarshal(data, &scores); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal credit score history: %w", err)
 	}
 
 	return scores, nil

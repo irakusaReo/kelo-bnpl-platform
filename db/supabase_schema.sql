@@ -47,6 +47,7 @@ CREATE TABLE public.merchant_stores (
     store_name TEXT NOT NULL,
     store_url TEXT,
     store_address TEXT,
+    logo_url TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -61,6 +62,7 @@ CREATE TABLE public.products (
     description TEXT,
     price NUMERIC(10, 2) NOT NULL,
     sku TEXT,
+    images TEXT[],
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

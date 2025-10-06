@@ -13,12 +13,15 @@ import (
 	"kelo-backend/pkg/config"
 	"kelo-backend/pkg/creditscore"
 	"kelo-backend/pkg/logger"
-	"kelo-backend/pkg/models"
+	"kelo-backend/pkg/liquidity"
+	"kelo-backend/pkg/merchant"
+	"kelo-backend/pkg/order"
+	"kelo-backend/pkg/product"
 	"kelo-backend/pkg/relayer"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
-	"github.com/supabase/postgrest-go"
+	"github.com/supabase-community/supabase-go"
 )
 
 func main() {
@@ -32,12 +35,10 @@ func main() {
 	logger.Init(cfg.LogLevel)
 
 	// Initialize Supabase client
-	supabaseClient := postgrest.NewClient(cfg.SupabaseURL, "public", nil)
-	if supabaseClient.ClientError != nil {
-		log.Fatal().Err(supabaseClient.ClientError).Msg("Failed to initialize Supabase client")
+	supabaseClient, err := supabase.NewClient(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey, nil)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to initialize Supabase client")
 	}
-	supabaseClient.TokenAuth(cfg.SupabaseServiceRoleKey)
-
 
 	// Initialize blockchain clients
 	blockchainClients, err := blockchain.NewClients(cfg)
@@ -52,9 +53,19 @@ func main() {
 		log.Fatal().Err(err).Msg("Failed to initialize relayer service")
 	}
 
+	// Initialize services
+	productService := product.NewService(supabaseClient)
+	merchantService := merchant.NewService(supabaseClient)
+	orderService := order.NewService(supabaseClient)
+	liquidityService := liquidity.NewService(supabaseClient)
+
 	// Initialize handlers
 	creditScoreHandler := creditscore.NewCreditScoreHandler(creditScoreService)
 	relayerHandler := relayer.NewHandler(relayerService)
+	productHandler := product.NewHandler(productService)
+	merchantHandler := merchant.NewHandler(merchantService)
+	orderHandler := order.NewHandler(orderService)
+	liquidityHandler := liquidity.NewHandler(liquidityService)
 
 	// Initialize Gin router
 	if cfg.Environment == "production" {
@@ -67,8 +78,15 @@ func main() {
 	router.Use(corsMiddleware())
 
 	// Setup routes
-	creditScoreHandler.RegisterRoutes(router)
-	relayerHandler.RegisterRoutes(router)
+	v1 := router.Group("/v1")
+	{
+		creditScoreHandler.RegisterRoutes(v1)
+		relayerHandler.RegisterRoutes(v1)
+		productHandler.RegisterRoutes(v1)
+		merchantHandler.RegisterRoutes(v1)
+		orderHandler.RegisterRoutes(v1)
+		liquidityHandler.RegisterRoutes(v1)
+	}
 
 	// Create HTTP server
 	srv := &http.Server{

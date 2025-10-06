@@ -13,12 +13,13 @@ import (
 	"kelo-backend/pkg/models"
 
 	"github.com/rs/zerolog/log"
-	"github.com/supabase/postgrest-go"
+	"github.com/supabase-community/postgrest-go"
+	"github.com/supabase-community/supabase-go"
 )
 
 // CreditScoreEngine handles credit scoring calculations and data integration
 type CreditScoreEngine struct {
-	client       *postgrest.Client
+	client       *supabase.Client
 	blockchain   *blockchain.Clients
 	config       *config.Config
 	externalAPIs *ExternalAPIs
@@ -189,7 +190,7 @@ type Allowance struct {
 }
 
 // NewCreditScoreEngine creates a new credit score engine instance
-func NewCreditScoreEngine(client *postgrest.Client, blockchain *blockchain.Clients, cfg *config.Config) *CreditScoreEngine {
+func NewCreditScoreEngine(client *supabase.Client, blockchain *blockchain.Clients, cfg *config.Config) *CreditScoreEngine {
 	engine := &CreditScoreEngine{
 		client:     client,
 		blockchain: blockchain,
@@ -227,11 +228,18 @@ func (e *CreditScoreEngine) CalculateCreditScore(ctx context.Context, req Credit
 	}
 
 	// Get user data from profiles table
-	var user models.Profile
-	err := e.client.From("profiles").Select("*", "exact", false).Single().Eq("id", req.UserID).Execute(&user)
+	var users []models.Profile
+	data, _, err := e.client.From("profiles").Select("*", "exact", false).Single().Eq("id", req.UserID).Execute()
 	if err != nil {
 		return nil, fmt.Errorf("user not found: %w", err)
 	}
+	if err := json.Unmarshal(data, &users); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal user profile: %w", err)
+	}
+	if len(users) == 0 {
+		return nil, fmt.Errorf("user not found")
+	}
+	user := users[0]
 
 	// Initialize scoring factors
 	factors := ScoringFactors{}
@@ -318,9 +326,11 @@ func (e *CreditScoreEngine) CalculateCreditScore(ctx context.Context, req Credit
 	// Get previous score
 	var previousScore int
 	var creditScores []models.CreditScore
-	err = e.client.From("credit_scores").Select("score", "exact", false).Eq("user_id", req.UserID).Order("created_at", &postgrest.OrderOpts{Ascending: false}).Limit(1).Execute(&creditScores)
-	if err == nil && len(creditScores) > 0 {
-		previousScore = creditScores[0].Score
+	data, _, err = e.client.From("credit_scores").Select("score", "exact", false).Eq("user_id", req.UserID).Order("created_at", &postgrest.OrderOpts{Ascending: false}).Limit(1, "").Execute()
+	if err == nil {
+		if err := json.Unmarshal(data, &creditScores); err == nil && len(creditScores) > 0 {
+			previousScore = creditScores[0].Score
+		}
 	}
 
 	// Determine data source
@@ -359,9 +369,12 @@ func (e *CreditScoreEngine) calculateOnChainHistoryScore(ctx context.Context, us
 
 	// Get user's blockchain transactions
 	var transactions []models.Transaction
-	err := e.client.From("transactions").Select("*", "exact", false).Eq("user_id", user.ID).Execute(&transactions)
+	data, _, err := e.client.From("transactions").Select("*", "exact", false).Eq("user_id", user.ID).Execute()
 	if err != nil {
 		return 0.0, fmt.Errorf("failed to get transactions: %w", err)
+	}
+	if err := json.Unmarshal(data, &transactions); err != nil {
+		return 0.0, fmt.Errorf("failed to unmarshal transactions: %w", err)
 	}
 
 	if len(transactions) == 0 {
@@ -407,9 +420,12 @@ func (e *CreditScoreEngine) calculateOnChainHistoryScore(ctx context.Context, us
 func (e *CreditScoreEngine) calculateRepaymentBehaviorScore(ctx context.Context, user *models.Profile) (float64, error) {
 	// Get user's loans
 	var loans []models.Loan
-	err := e.client.From("loans").Select("*", "exact", false).Eq("user_id", user.ID).Execute(&loans)
+	data, _, err := e.client.From("loans").Select("*", "exact", false).Eq("user_id", user.ID).Execute()
 	if err != nil {
 		return 0.0, fmt.Errorf("failed to get loans: %w", err)
+	}
+	if err := json.Unmarshal(data, &loans); err != nil {
+		return 0.0, fmt.Errorf("failed to unmarshal loans: %w", err)
 	}
 
 	if len(loans) == 0 {
@@ -635,17 +651,24 @@ func (e *CreditScoreEngine) saveCreditScore(user *models.Profile, response *Cred
 		ValidUntil:    response.ValidUntil,
 	}
 
-	var results []models.CreditScore
-	_, err = e.client.From("credit_scores").Insert(creditScore, false, "", "", "exact").ExecuteTo(&results)
+	_, _, err = e.client.From("credit_scores").Insert(creditScore, false, "", "", "").Execute()
 	return err
 }
 
 // getRecentValidScore gets the most recent valid credit score
 func (e *CreditScoreEngine) getRecentValidScore(userID string) (*CreditScoreResponse, error) {
 	var creditScores []models.CreditScore
-	err := e.client.From("credit_scores").Select("*", "exact", false).Eq("user_id", userID).Gte("valid_until", time.Now().Format(time.RFC3339)).Order("created_at", &postgrest.OrderOpts{Ascending: false}).Limit(1).Execute(&creditScores)
-	if err != nil || len(creditScores) == 0 {
+	data, _, err := e.client.From("credit_scores").Select("*", "exact", false).Eq("user_id", userID).Gte("valid_until", time.Now().Format(time.RFC3339)).Order("created_at", &postgrest.OrderOpts{Ascending: false}).Limit(1, "").Execute()
+	if err != nil || len(data) <= 2 {
 		return nil, fmt.Errorf("no recent valid score found: %w", err)
+	}
+
+	if err := json.Unmarshal(data, &creditScores); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal credit score: %w", err)
+	}
+
+	if len(creditScores) == 0 {
+		return nil, fmt.Errorf("no recent valid score found")
 	}
 
 	creditScore := creditScores[0]

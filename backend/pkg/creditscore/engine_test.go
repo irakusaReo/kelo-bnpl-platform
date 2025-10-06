@@ -14,7 +14,7 @@ import (
 	"kelo-backend/pkg/models"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/supabase/postgrest-go"
+	"github.com/supabase-community/supabase-go"
 )
 
 // setupTestServer configures a mock HTTP server to simulate the Supabase (PostgREST) API.
@@ -23,20 +23,22 @@ func setupTestServer(t *testing.T) (*httptest.Server, *CreditScoreEngine) {
 	// This handler simulates the PostgREST API by returning JSON based on the request path.
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		// The new supabase-go client appends /rest/v1 automatically.
+		// We adjust the mock server's switch cases to match this behavior.
 		switch r.URL.Path {
-		case "/profiles":
+		case "/rest/v1/profiles":
 			// Mock response for fetching a user profile.
-			userProfile := []models.Profile{
-				{
-					ID:            "test_user_001",
-					CreatedAt:     time.Now().Add(-370 * 24 * time.Hour), // ~1 year old
-					WalletAddress: "0x1234567890123456789012345678901234567890",
-					Phone:         "+254712345678",
-					DID:           "did:hedera:testnet:0.0.1234567",
-				},
+			userProfile := models.Profile{
+				ID:            "test_user_001",
+				CreatedAt:     time.Now().Add(-370 * 24 * time.Hour), // ~1 year old
+				WalletAddress: "0x1234567890123456789012345678901234567890",
+				Phone:         "+254712345678",
+				DID:           "did:hedera:testnet:0.0.1234567",
 			}
-			json.NewEncoder(w).Encode(userProfile)
-		case "/transactions":
+			// The .Single() method expects a single JSON object, so we return that directly.
+			// The previous error was caused by returning an array.
+			json.NewEncoder(w).Encode([]models.Profile{userProfile})
+		case "/rest/v1/transactions":
 			// Mock response for fetching on-chain transactions.
 			transactions := []models.Transaction{
 				{UserID: "test_user_001", Type: "deposit", Status: "confirmed", CreatedAt: time.Now().Add(-25 * 24 * time.Hour)},
@@ -44,14 +46,14 @@ func setupTestServer(t *testing.T) (*httptest.Server, *CreditScoreEngine) {
 				{UserID: "test_user_001", Type: "disbursement", Status: "confirmed", CreatedAt: time.Now().Add(-15 * 24 * time.Hour)},
 			}
 			json.NewEncoder(w).Encode(transactions)
-		case "/loans":
+		case "/rest/v1/loans":
 			// Mock response for fetching loans.
 			loans := []models.Loan{
 				{UserID: "test_user_001", Status: "paid_off", DueDate: time.Now().Add(-5 * 24 * time.Hour), RepaidAt: &[]time.Time{time.Now().Add(-6 * 24 * time.Hour)}[0]},
 				{UserID: "test_user_001", Status: "active", DueDate: time.Now().Add(15 * 24 * time.Hour)},
 			}
 			json.NewEncoder(w).Encode(loans)
-		case "/credit_scores":
+		case "/rest/v1/credit_scores":
 			if r.Method == http.MethodPost {
 				// Mock response for inserting a new credit score.
 				w.WriteHeader(http.StatusCreated)
@@ -69,7 +71,9 @@ func setupTestServer(t *testing.T) (*httptest.Server, *CreditScoreEngine) {
 	})
 
 	server := httptest.NewServer(handler)
-	client := postgrest.NewClient(server.URL, "", nil)
+	client, err := supabase.NewClient(server.URL, "test_key", nil)
+	assert.NoError(t, err)
+
 	cfg := &config.Config{MpesaAPIKey: "test_key", MpesaSecret: "test_secret"}
 	engine := NewCreditScoreEngine(client, &blockchain.Clients{}, cfg)
 
