@@ -3,12 +3,13 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { SupabaseClient, User } from '@supabase/supabase-js'
-import { Profile } from '@/types/database' // I'll need to create this type definition next
+import { Profile } from '@/types/database'
 
 type UserContextType = {
   supabase: SupabaseClient | null
   user: User | null
   profile: Profile | null
+  accessToken: string | null
   isLoading: boolean
   error: any
 }
@@ -19,6 +20,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [supabase] = useState(() => createClient())
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [accessToken, setAccessToken] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<any>(null)
 
@@ -29,14 +31,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
         const { data: { session }, error } = await supabase.auth.getSession()
         if (error) throw error
 
-        const currentUser = session?.user ?? null
-        setUser(currentUser)
+        setUser(session?.user ?? null)
+        setAccessToken(session?.access_token ?? null)
 
-        if (currentUser) {
+        if (session?.user) {
           const { data: userProfile, error: profileError } = await supabase
             .from('profiles')
             .select('*')
-            .eq('id', currentUser.id)
+            .eq('id', session.user.id)
             .single()
 
           if (profileError) throw profileError
@@ -54,16 +56,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        const currentUser = session?.user ?? null
-        setUser(currentUser)
-        setProfile(null) // Reset profile on auth change
+        setUser(session?.user ?? null)
+        setAccessToken(session?.access_token ?? null)
+        setProfile(null)
 
-        if (currentUser) {
+        if (session?.user) {
           setIsLoading(true)
           const { data: userProfile, error: profileError } = await supabase
             .from('profiles')
             .select('*')
-            .eq('id', currentUser.id)
+            .eq('id', session.user.id)
             .single()
 
           if (profileError) {
@@ -86,6 +88,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     supabase,
     user,
     profile,
+    accessToken,
     isLoading,
     error,
   }
