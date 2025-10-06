@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
-import { useAuth } from "@/contexts/auth-context";
+import { useUser } from "@/contexts/UserContext";
 
 interface SocketContextType {
   socket: Socket | null;
@@ -32,14 +32,14 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [lastMessage, setLastMessage] = useState<any>(null);
-  const { user, loading } = useAuth();
-  const isAuthenticated = !!user && !loading;
+  const { user, accessToken, isLoading } = useUser();
+  const isAuthenticated = !!user && !isLoading && accessToken;
 
   useEffect(() => {
     if (isAuthenticated && user) {
       const socketInstance = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3000", {
         auth: {
-          token: user.token,
+          token: accessToken,
           userId: user.id,
         },
       });
