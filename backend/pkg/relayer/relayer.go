@@ -12,9 +12,7 @@ import (
 	"kelo-backend/pkg/config"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/rs/zerolog/log"
 )
 
@@ -178,6 +176,7 @@ func NewTrustedRelayer(cfg *config.Config, bc *blockchain.Clients) (*TrustedRela
 		cancel()
 		return nil, fmt.Errorf("failed to initialize LayerZero client: %w", err)
 	}
+	layerZeroClient.SetPrivateKey(privateKey)
 	
 	// Initialize Hedera event listener
 	hederaListener, err := NewHederaEventListener(bc.GetHederaClient(), cfg.HederaContractAddress)

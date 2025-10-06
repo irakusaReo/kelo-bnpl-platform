@@ -1,97 +1,97 @@
 package middleware
 
 import (
-	"context"
+	"fmt"
+	"kelo-backend/pkg/config"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/rs/zerolog/log"
+	"github.com/golang-jwt/jwt/v4"
 )
 
-// CustomClaims defines the structure of the JWT claims we care about.
-type CustomClaims struct {
-	Role string `json:"role"`
-	jwt.RegisteredClaims
-}
+// AuthMiddleware creates a middleware handler that verifies the JWT token
+// and checks if the user has one of the required roles.
+func AuthMiddleware(requiredRoles ...string) gin.HandlerFunc {
+	// In a production app, the config should be loaded once and passed around,
+	// not loaded on every middleware instantiation.
+	cfg, err := config.Load()
+	if err != nil {
+		// If config fails to load, the middleware will always fail.
+		// This is a design choice to ensure the app doesn't run with invalid config.
+		panic(fmt.Sprintf("Failed to load configuration for auth middleware: %v", err))
+	}
 
-// AuthMiddleware validates the Supabase JWT token from the Authorization header.
-// This is a Gin-compatible middleware.
-func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			log.Warn().Msg("Authorization header is missing")
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is required"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is missing"})
 			return
 		}
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		if tokenString == authHeader {
-			log.Warn().Msg("Bearer token is missing or malformed")
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Bearer token is required"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization header format, must be Bearer token"})
 			return
 		}
 
-		jwtSecret := os.Getenv("SUPABASE_JWT_SECRET")
-		if jwtSecret == "" {
-			log.Error().Msg("SUPABASE_JWT_SECRET environment variable not set")
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Server configuration error"})
-			return
-		}
-
-		token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-			// Don't forget to validate the alg is what you expect:
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, gin.H{"error": "Unexpected signing method"}
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 			}
-			return []byte(jwtSecret), nil
+			return []byte(cfg.SupabaseJWTSecret), nil
 		})
 
-		if err != nil {
-			log.Warn().Err(err).Msg("Failed to parse JWT")
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		if err != nil || !token.Valid {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 			return
 		}
 
-		if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
-			// Token is valid. Add claims to the request context for downstream handlers.
-			c.Set("userClaims", claims)
-			c.Next()
-		} else {
-			log.Warn().Msg("Invalid JWT or claims")
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-			return
-		}
-	}
-}
-
-// AdminOnlyMiddleware checks if the user has the 'admin' role.
-// This should be chained after AuthMiddleware.
-func AdminOnlyMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		claimsValue, exists := c.Get("userClaims")
-		if !exists {
-			// This should not happen if AuthMiddleware is used first.
-			log.Error().Msg("User claims not found in context")
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Server processing error"})
-			return
-		}
-
-		claims, ok := claimsValue.(*CustomClaims)
+		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
-			log.Error().Msg("Could not cast claims from context")
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Server processing error"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
 			return
 		}
 
-		if claims.Role != "admin" {
-			log.Warn().Str("role", claims.Role).Msg("Admin access denied")
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Forbidden: Admins only"})
+		// Extract user ID (subject) and role from claims
+		userID, ok := claims["sub"].(string)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "User ID (sub) not found in token"})
 			return
 		}
+
+		appMetadata, ok := claims["app_metadata"].(map[string]interface{})
+        if !ok {
+            // Supabase might not include app_metadata if it's empty.
+            // We'll check for the role claim directly for broader compatibility.
+            appMetadata = claims
+        }
+
+		userRole, ok := appMetadata["role"].(string)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Role not found in token claims"})
+			return
+		}
+
+		// Check if the user has one of the required roles
+		if len(requiredRoles) > 0 {
+			hasRequiredRole := false
+			for _, requiredRole := range requiredRoles {
+				if userRole == requiredRole {
+					hasRequiredRole = true
+					break
+				}
+			}
+
+			if !hasRequiredRole {
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "You don't have permission to access this resource"})
+				return
+			}
+		}
+
+		// Set user info in context for downstream handlers
+		c.Set("userID", userID)
+		c.Set("userRole", userRole)
 
 		c.Next()
 	}

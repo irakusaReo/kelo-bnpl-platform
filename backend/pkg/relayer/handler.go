@@ -22,11 +22,10 @@ func NewHandler(service *TrustedRelayer) *Handler {
 }
 
 // RegisterRoutes registers the relayer's admin routes with a gin router.
-func (h *Handler) RegisterRoutes(router *gin.Engine) {
+func (h *Handler) RegisterRoutes(router gin.IRouter) {
 	// All relayer routes are for admins only.
 	admin := router.Group("/api/v1/admin/relayer")
-	admin.Use(middleware.AuthMiddleware)
-	admin.Use(middleware.AdminOnlyMiddleware)
+	admin.Use(middleware.AuthMiddleware("admin"))
 
 	admin.GET("/status", h.GetRelayerStatus)
 	admin.GET("/metrics", h.GetRelayerMetrics)

@@ -684,6 +684,24 @@ func (r *CrossChainRelayer) processCrossChainMessage(msg LayerZeroMessage) error
 - **Query Builder**: Intuitive query API
 - **Studio**: Visual database management
 
+#### Key Database Tables
+
+The database schema is designed to support the core functionalities of the platform, including user management, merchant services, and the BNPL marketplace.
+
+| Table             | Description                                                                 |
+|-------------------|-----------------------------------------------------------------------------|
+| `profiles`        | Stores public user information and role, linked to `auth.users`.            |
+| `merchants`       | Contains business-specific details for users with the 'merchant' role.      |
+| `merchant_stores` | Manages branding and details for a merchant's online or physical stores.    |
+| `products`        | Stores information about products sold by merchants, including name, price, and images. |
+| `orders`          | Tracks orders placed by users, linking them to a merchant store.            |
+| `order_items`     | A join table that details the specific products and quantities within each order. |
+| `loans`           | Manages the BNPL loan details associated with an order.                     |
+| `repayments`      | Records repayment transactions made against a loan.                         |
+| `liquidity_pools` | Stores information about the available liquidity pools for investment.        |
+| `user_investments`| Tracks the amount a user or merchant has staked in a liquidity pool.         |
+| `transactions`    | Logs on-chain transactions for credit scoring and auditing purposes.        |
+
 ### Cache: Redis
 
 #### Why Redis?

@@ -1,7 +1,6 @@
 package creditscore
 
 import (
-	"context"
 	"net/http"
 	"strconv"
 	"time"
@@ -26,9 +25,9 @@ func NewCreditScoreHandler(service *CreditScoreService) *CreditScoreHandler {
 }
 
 // RegisterRoutes registers the credit score routes with a gin router
-func (h *CreditScoreHandler) RegisterRoutes(router *gin.Engine) {
+func (h *CreditScoreHandler) RegisterRoutes(router gin.IRouter) {
 	api := router.Group("/api/v1/creditscore")
-	api.Use(middleware.AuthMiddleware) // Apply auth middleware to the group
+	api.Use(middleware.AuthMiddleware("user", "admin")) // Apply auth middleware to the group
 
 	// Credit score routes
 	api.GET("/:userID", h.GetCreditScore)
