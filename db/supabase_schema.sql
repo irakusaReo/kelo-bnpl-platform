@@ -158,6 +158,7 @@ CREATE INDEX idx_user_investments_pool_id ON public.user_investments(pool_id);
 -- 3. Functions and Triggers for Role Syncing
 --
 -- Function to sync user role from app_metadata to profiles table
+-- Function to sync user role from user_meta_data to profiles table
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -168,7 +169,7 @@ BEGIN
   INSERT INTO public.profiles (id, role)
   VALUES (
     NEW.id,
-    (NEW.raw_app_meta_data->>'role')::public.user_role
+    (NEW.raw_user_meta_data->>'role')::public.user_role
   );
   RETURN NEW;
 END;
