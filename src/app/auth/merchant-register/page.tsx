@@ -48,11 +48,11 @@ export default function MerchantRegisterPage() {
         email: email,
         password: password,
         options: {
-          app_metadata: {
+          data: {
             role: 'merchant',
-            // Also store names here so trigger can use them if needed, though we update later.
             first_name: firstName,
             last_name: lastName,
+            phone: phone,
           },
         },
       });
@@ -69,22 +69,7 @@ export default function MerchantRegisterPage() {
       }
 
       // The handle_new_user trigger has already created an entry in the profiles table.
-      // 2. Update the newly created profile with personal details
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          first_name: firstName,
-          last_name: lastName,
-          phone: phone,
-        })
-        .eq('id', user.id);
-
-      if (profileError) {
-        toast.error(`Account created, but failed to save profile info: ${profileError.message}`);
-        // Decide if we should stop here or proceed. For now, we'll proceed.
-      }
-
-      // 3. Create the corresponding entry in the merchants table
+      // Now, create the corresponding entry in the merchants table
       const { error: merchantError } = await supabase
         .from('merchants')
         .insert({
@@ -95,7 +80,7 @@ export default function MerchantRegisterPage() {
 
       if (merchantError) {
         toast.error(`Account created, but failed to save business info: ${merchantError.message}`);
-        // This is a more critical failure. The user is a merchant in name but has no merchant record.
+        // This is a critical failure. The user is a merchant in name but has no merchant record.
         // A robust solution might involve a transaction or cleanup function.
         throw merchantError;
       }

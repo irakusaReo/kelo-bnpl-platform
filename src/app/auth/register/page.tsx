@@ -17,7 +17,7 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Login State
+  // Login State (kept for the login tab)
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
@@ -91,10 +91,11 @@ export default function RegisterPage() {
         email: regEmail,
         password: regPassword,
         options: {
-          // Store the role in app_metadata, which is secure and not client-accessible
-          // The database trigger 'handle_new_user' will sync this to the profiles table
-          app_metadata: {
+          data: {
             role: 'user',
+            first_name: regFirstName,
+            last_name: regLastName,
+            phone: regPhone,
           },
         },
       });
@@ -104,24 +105,8 @@ export default function RegisterPage() {
         throw signUpError;
       }
 
-      if (signUpData.user) {
-        // After the trigger creates the profile, update it with the additional info
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({
-            first_name: regFirstName,
-            last_name: regLastName,
-            phone: regPhone,
-          })
-          .eq('id', signUpData.user.id);
-
-        if (profileError) {
-            // This is not ideal, as the user is created but their profile isn't fully populated.
-            // In a real-world app, you might want to handle this more gracefully.
-            toast.error(`User created, but failed to save profile info: ${profileError.message}`);
-            throw profileError;
-        }
-      }
+      // The trigger now handles profile creation, so we don't need a follow-up update.
+      // This simplifies the client-side logic and avoids potential race conditions.
 
       toast.success("Registration successful! Please check your email to verify your account.");
 
@@ -137,7 +122,6 @@ export default function RegisterPage() {
     <Toaster richColors />
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center space-x-2 mb-4">
             <div className="h-12 w-12 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600" />
