@@ -31,64 +31,58 @@ export default function MerchantRegisterPage() {
   const { supabase } = useUser();
   const router = useRouter();
 
+  const handleGoogleLogin = async () => {
+    if (!supabase) return;
+    setIsLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${location.origin}/auth/callback`,
+      },
+    });
+    if (error) {
+        toast.error(error.message);
+        setIsLoading(false);
+    }
+  }
+
   const handleMerchantRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabase) return;
-
     if (password !== confirmPassword) {
       toast.error("Passwords do not match.");
       return;
     }
-
     setIsLoading(true);
 
     try {
-      // 1. Sign up the user with the 'merchant' role
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: email,
-        password: password,
-        options: {
-          data: {
-            role: 'merchant',
-            first_name: firstName,
-            last_name: lastName,
-            phone: phone,
-          },
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          email,
+          password,
+          firstName,
+          lastName,
+          phone,
+          role: 'merchant',
+          businessName,
+          businessRegNumber,
+        }),
       });
 
-      if (signUpError) {
-        toast.error(signUpError.message);
-        throw signUpError;
+      const result = await response.json();
+
+      if (!response.ok) {
+        toast.error(result.error || 'Registration failed.');
+        throw new Error(result.error || 'An unknown error occurred');
       }
 
-      const user = signUpData.user;
-      if (!user) {
-        toast.error("Registration failed: no user created.");
-        throw new Error("Registration failed: no user created.");
-      }
+      toast.success(result.message || "Registration successful! Please check your email to verify your account.");
 
-      // The handle_new_user trigger has already created an entry in the profiles table.
-      // Now, create the corresponding entry in the merchants table
-      const { error: merchantError } = await supabase
-        .from('merchants')
-        .insert({
-          id: user.id, // Link to the user's profile ID
-          business_name: businessName,
-          business_registration_number: businessRegNumber,
-        });
-
-      if (merchantError) {
-        toast.error(`Account created, but failed to save business info: ${merchantError.message}`);
-        // This is a critical failure. The user is a merchant in name but has no merchant record.
-        // A robust solution might involve a transaction or cleanup function.
-        throw merchantError;
-      }
-
-      toast.success("Merchant registration successful! Please check your email to verify your account.");
-
-    } catch (error) {
-      console.error("Merchant registration failed:", error);
+    } catch (error: any) {
+      console.error("Merchant registration submission failed:", error);
     } finally {
       setIsLoading(false);
     }
@@ -186,6 +180,11 @@ export default function MerchantRegisterPage() {
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Create Merchant Account
               </Button>
+
+              <div className="relative"><div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div><div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">Or continue with</span></div></div>
+              <div className="grid grid-cols-1 gap-4">
+                  <Button variant="outline" type="button" onClick={handleGoogleLogin} disabled={isLoading}>Google</Button>
+              </div>
             </CardContent>
           </form>
         </Card>
