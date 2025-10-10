@@ -157,31 +157,9 @@ CREATE INDEX idx_user_investments_pool_id ON public.user_investments(pool_id);
 --
 -- 3. Functions and Triggers for Role Syncing
 --
--- Function to sync user role from app_metadata to profiles table
--- Function to sync user role and basic info from app_metadata to profiles table
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  INSERT INTO public.profiles (id, role, first_name, last_name, phone)
-  VALUES (
-    NEW.id,
-    (NEW.raw_app_meta_data->>'role')::public.user_role,
-    NEW.raw_app_meta_data->>'first_name',
-    NEW.raw_app_meta_data->>'last_name',
-    NEW.raw_app_meta_data->>'phone'
-  );
-  RETURN NEW;
-END;
-$$;
-
--- Trigger to call the function on new user creation
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+-- The handle_new_user function and trigger are removed.
+-- Profile creation is now handled explicitly by the /api/auth/register API route.
+-- This provides more control and avoids race conditions.
 
 --
 -- 4. Row-Level Security (RLS) Policies
@@ -216,7 +194,8 @@ CREATE POLICY "Admins can manage all user_investments" ON public.user_investment
 -- RLS Policies for Users
 --
 -- Profiles
-CREATE POLICY "Users can insert their own profile" ON public.profiles FOR INSERT TO authenticated WITH CHECK (id = auth.uid());
+-- Note: The API route uses the service_role_key to insert into profiles, bypassing RLS.
+-- These policies are for user-level access after creation.
 CREATE POLICY "Users can view their own profile" ON public.profiles FOR SELECT TO authenticated USING (id = auth.uid());
 CREATE POLICY "Users can update their own profile" ON public.profiles FOR UPDATE TO authenticated USING (id = auth.uid());
 
