@@ -106,8 +106,6 @@ export default function RegisterPage() {
       }
 
       toast.success(result.message || "Registration successful! Please check your email to verify your account.");
-      // You might want to clear the form or redirect the user
-      // For now, we'll just show the success message.
 
     } catch (error: any) {
       console.error("Registration submission failed:", error);
