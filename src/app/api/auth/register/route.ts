@@ -15,18 +15,11 @@ export async function POST(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // 1. Create the user in Supabase Auth, passing all info in app_metadata
-  // The enhanced database trigger will now handle the entire profile creation.
+  // 1. Create the user in Supabase Auth
   const { data: { user }, error: creationError } = await supabaseAdmin.auth.admin.createUser({
     email,
     password,
     email_confirm: true, // Send a confirmation email for security
-    app_metadata: {
-      role,
-      first_name: firstName,
-      last_name: lastName,
-      phone,
-    }
   })
 
   if (creationError) {
@@ -39,8 +32,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to create user for an unknown reason.' }, { status: 500 })
   }
 
-  // 2. If the user is a merchant, create their merchant record.
-  // This happens *after* the user and profile have been successfully created.
+  // 2. Manually insert the new profile into the public.profiles table
+  const { error: profileError } = await supabaseAdmin
+    .from('profiles')
+    .insert({
+      id: user.id,
+      role,
+      first_name: firstName,
+      last_name: lastName,
+      phone: phone
+    })
+
+  if (profileError) {
+      // If profile insert fails, we should ideally delete the auth user to avoid orphans.
+      console.error(`Failed to create profile for user ${user.id}:`, profileError.message)
+      return NextResponse.json({ error: `User account created, but failed to create profile: ${profileError.message}` }, { status: 500 })
+  }
+
+  // 3. If the user is a merchant, create their merchant record.
   if (role === 'merchant') {
     if (!businessName) {
         return NextResponse.json({ error: 'Business name is required for merchant registration.' }, { status: 400 })

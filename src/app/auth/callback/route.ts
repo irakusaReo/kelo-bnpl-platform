@@ -14,11 +14,13 @@ export async function GET(request: Request) {
     if (!sessionError && session) {
       const user = session.user;
 
-      // Check if the user is new (i.e., doesn't have a role assigned yet)
-      // This is a simple way to check for first-time OAuth logins.
-      if (!user.app_metadata.role) {
+      // Check if a profile already exists for this user.
+      const { data: profile } = await supabase.from('profiles').select('id').eq('id', user.id).single();
 
-        // Create an admin client to update the user's metadata
+      // If no profile exists, this is a new OAuth user. Create a profile for them.
+      if (!profile) {
+
+        // Create an admin client to insert into the profiles table
         const supabaseAdmin = createAdminClient(
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
           process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -29,22 +31,19 @@ export async function GET(request: Request) {
         const [firstName, ...lastNameParts] = fullName.split(' ');
         const lastName = lastNameParts.join(' ');
 
-        const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-          user.id,
-          {
-            app_metadata: {
-              ...user.app_metadata,
-              role: 'user', // Assign default 'user' role
-              first_name: firstName || '',
-              last_name: lastName || ' '
-            }
-          }
-        )
+        const { error: insertError } = await supabaseAdmin
+            .from('profiles')
+            .insert({
+                id: user.id,
+                role: 'user', // Assign default 'user' role
+                first_name: firstName || '',
+                last_name: lastName || ' ',
+            });
 
-        if (updateError) {
-          console.error('Error updating user metadata for OAuth user:', updateError.message);
+        if (insertError) {
+          console.error('Error creating profile for OAuth user:', insertError.message);
           // Redirect to an error page, as the user might not have a proper profile
-          return NextResponse.redirect(`${origin}/auth/auth-code-error?message=Could not assign role.`);
+          return NextResponse.redirect(`${origin}/auth/auth-code-error?message=Could not create profile.`);
         }
       }
 
