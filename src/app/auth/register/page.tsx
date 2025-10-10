@@ -6,38 +6,135 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Shield, Eye, EyeOff } from "lucide-react";
+import { Shield, Eye, EyeOff, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { useUser } from "@/contexts/UserContext";
+import { useRouter } from "next/navigation";
+import { Toaster, toast } from "sonner";
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    password: "",
-    confirmPassword: "",
-    agreeToTerms: false,
-  });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Login State
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+
+  // Register State
+  const [regFirstName, setRegFirstName] = useState('');
+  const [regLastName, setRegLastName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regPhone, setRegPhone] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regConfirmPassword, setRegConfirmPassword] = useState('');
+
+  const [isLoading, setIsLoading] = useState(false);
+  const { supabase } = useUser();
+  const router = useRouter();
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle registration logic here
-    console.log("Registration form submitted:", formData);
+    if (!supabase) return;
+    setIsLoading(true);
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
+        password: loginPassword,
+      });
+
+      if (error) {
+        toast.error(error.message);
+        throw error;
+      }
+
+      toast.success("Login successful! Redirecting...");
+      router.push('/dashboard');
+
+    } catch (error) {
+      console.error("Login failed:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value
-    }));
+  const handleGoogleLogin = async () => {
+    if (!supabase) return;
+    setIsLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${location.origin}/auth/callback`,
+      },
+    });
+    if (error) {
+        toast.error(error.message);
+        setIsLoading(false);
+    }
+  }
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabase) return;
+
+    if (regPassword !== regConfirmPassword) {
+      toast.error("Passwords do not match.");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // Sign up the user
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: regEmail,
+        password: regPassword,
+        options: {
+          // Store the role in app_metadata, which is secure and not client-accessible
+          // The database trigger 'handle_new_user' will sync this to the profiles table
+          app_metadata: {
+            role: 'user',
+          },
+        },
+      });
+
+      if (signUpError) {
+        toast.error(signUpError.message);
+        throw signUpError;
+      }
+
+      if (signUpData.user) {
+        // After the trigger creates the profile, update it with the additional info
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            first_name: regFirstName,
+            last_name: regLastName,
+            phone: regPhone,
+          })
+          .eq('id', signUpData.user.id);
+
+        if (profileError) {
+            // This is not ideal, as the user is created but their profile isn't fully populated.
+            // In a real-world app, you might want to handle this more gracefully.
+            toast.error(`User created, but failed to save profile info: ${profileError.message}`);
+            throw profileError;
+        }
+      }
+
+      toast.success("Registration successful! Please check your email to verify your account.");
+
+    } catch (error) {
+      console.error("Registration failed:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
+    <>
+    <Toaster richColors />
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
@@ -61,79 +158,40 @@ export default function RegisterPage() {
               <TabsTrigger value="register">Register</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="register">
-              <CardHeader>
-                <CardTitle>Create Account</CardTitle>
-                <CardDescription>
-                  Join Kelo and start your BNPL journey
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="firstName">First Name</Label>
-                      <Input
-                        id="firstName"
-                        name="firstName"
-                        type="text"
-                        placeholder="First name"
-                        value={formData.firstName}
-                        onChange={handleInputChange}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="lastName">Last Name</Label>
-                      <Input
-                        id="lastName"
-                        name="lastName"
-                        type="text"
-                        placeholder="Last name"
-                        value={formData.lastName}
-                        onChange={handleInputChange}
-                        required
-                      />
-                    </div>
-                  </div>
-                  
+            {/* Login Tab */}
+            <TabsContent value="login">
+              <form onSubmit={handleLogin}>
+                <CardHeader>
+                  <CardTitle>Login</CardTitle>
+                  <CardDescription>
+                    Enter your credentials to access your account
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
                     <Input
                       id="email"
-                      name="email"
                       type="email"
                       placeholder="Enter your email"
-                      value={formData.email}
-                      onChange={handleInputChange}
                       required
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
+                      disabled={isLoading}
                     />
                   </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <Input
-                      id="phone"
-                      name="phone"
-                      type="tel"
-                      placeholder="+254 XXX XXX XXX"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="password">Password</Label>
                     <div className="relative">
                       <Input
                         id="password"
-                        name="password"
                         type={showPassword ? "text" : "password"}
-                        placeholder="Create a password"
-                        value={formData.password}
-                        onChange={handleInputChange}
+                        placeholder="Enter your password"
                         required
+                        value={loginPassword}
+                        onChange={(e) => setLoginPassword(e.target.value)}
+                        disabled={isLoading}
                       />
                       <Button
                         type="button"
@@ -150,18 +208,153 @@ export default function RegisterPage() {
                       </Button>
                     </div>
                   </div>
-                  
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="remember" disabled={isLoading} />
+                    <Label htmlFor="remember" className="text-sm">
+                      Remember me
+                    </Label>
+                  </div>
+
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Sign In
+                  </Button>
+
+                  <div className="text-center">
+                    <Link
+                      href="/auth/forgot-password"
+                      className="text-sm text-blue-600 hover:underline"
+                    >
+                      Forgot your password?
+                    </Link>
+                  </div>
+
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-card px-2 text-muted-foreground">
+                        Or continue with
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <Button variant="outline" type="button" onClick={handleGoogleLogin} disabled={isLoading}>
+                      Google
+                    </Button>
+                    <Button variant="outline" type="button" disabled={isLoading}>
+                      M-Pesa
+                    </Button>
+                  </div>
+                </CardContent>
+              </form>
+            </TabsContent>
+
+            {/* Register Tab */}
+            <TabsContent value="register">
+              <form onSubmit={handleRegister}>
+                <CardHeader>
+                  <CardTitle>Create Account</CardTitle>
+                  <CardDescription>
+                    Join Kelo and start your BNPL journey
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="firstName">First Name</Label>
+                      <Input
+                        id="firstName"
+                        type="text"
+                        placeholder="First name"
+                        required
+                        value={regFirstName}
+                        onChange={(e) => setRegFirstName(e.target.value)}
+                        disabled={isLoading}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="lastName">Last Name</Label>
+                      <Input
+                        id="lastName"
+                        type="text"
+                        placeholder="Last name"
+                        required
+                        value={regLastName}
+                        onChange={(e) => setRegLastName(e.target.value)}
+                        disabled={isLoading}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="regEmail">Email</Label>
+                    <Input
+                      id="regEmail"
+                      type="email"
+                      placeholder="Enter your email"
+                      required
+                      value={regEmail}
+                      onChange={(e) => setRegEmail(e.target.value)}
+                      disabled={isLoading}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="+254 XXX XXX XXX"
+                      required
+                      value={regPhone}
+                      onChange={(e) => setRegPhone(e.target.value)}
+                      disabled={isLoading}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="regPassword">Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="regPassword"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Create a password"
+                        required
+                        value={regPassword}
+                        onChange={(e) => setRegPassword(e.target.value)}
+                        disabled={isLoading}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="confirmPassword">Confirm Password</Label>
                     <div className="relative">
                       <Input
                         id="confirmPassword"
-                        name="confirmPassword"
                         type={showConfirmPassword ? "text" : "password"}
                         placeholder="Confirm your password"
-                        value={formData.confirmPassword}
-                        onChange={handleInputChange}
                         required
+                        value={regConfirmPassword}
+                        onChange={(e) => setRegConfirmPassword(e.target.value)}
+                        disabled={isLoading}
                       />
                       <Button
                         type="button"
@@ -178,18 +371,10 @@ export default function RegisterPage() {
                       </Button>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="agreeToTerms"
-                      name="agreeToTerms"
-                      checked={formData.agreeToTerms}
-                      onCheckedChange={(checked) => 
-                        setFormData(prev => ({ ...prev, agreeToTerms: checked as boolean }))
-                      }
-                      required
-                    />
-                    <Label htmlFor="agreeToTerms" className="text-sm">
+                    <Checkbox id="terms" required disabled={isLoading}/>
+                    <Label htmlFor="terms" className="text-sm">
                       I agree to the{" "}
                       <a href="#" className="text-blue-600 hover:underline">
                         Terms of Service
@@ -200,109 +385,25 @@ export default function RegisterPage() {
                       </a>
                     </Label>
                   </div>
-                  
-                  <Button type="submit" className="w-full">
+
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Create Account
                   </Button>
-                </form>
-                
-                <div className="text-center">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Already have an account?{" "}
-                    <Link
-                      href="/auth/login"
-                      className="text-blue-600 hover:underline"
-                    >
-                      Sign in
-                    </Link>
-                  </p>
-                </div>
-                
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
+
+                  <div className="text-center">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Already have an account?{" "}
+                      <Link
+                        href="/auth/login"
+                        className="text-blue-600 hover:underline"
+                      >
+                        Sign in
+                      </Link>
+                    </p>
                   </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">
-                      Or continue with
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <Button variant="outline" type="button">
-                    Google
-                  </Button>
-                  <Button variant="outline" type="button">
-                    M-Pesa
-                  </Button>
-                </div>
-              </CardContent>
-            </TabsContent>
-            
-            <TabsContent value="login">
-              <CardHeader>
-                <CardTitle>Login</CardTitle>
-                <CardDescription>
-                  Enter your credentials to access your account
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
-                  <Input
-                    id="login-email"
-                    type="email"
-                    placeholder="Enter your email"
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">Password</Label>
-                  <div className="relative">
-                    <Input
-                      id="login-password"
-                      type="password"
-                      placeholder="Enter your password"
-                      required
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="remember" />
-                  <Label htmlFor="remember" className="text-sm">
-                    Remember me
-                  </Label>
-                </div>
-                
-                <Button type="submit" className="w-full">
-                  Sign In
-                </Button>
-                
-                <div className="text-center">
-                  <Link
-                    href="/auth/forgot-password"
-                    className="text-sm text-blue-600 hover:underline"
-                  >
-                    Forgot your password?
-                  </Link>
-                </div>
-              </CardContent>
+                </CardContent>
+              </form>
             </TabsContent>
           </Tabs>
         </Card>
@@ -329,5 +430,6 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }
