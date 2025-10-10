@@ -4,24 +4,28 @@ import { NextResponse } from 'next/server'
 export async function POST(request: Request) {
   const { email, password, firstName, lastName, phone, role, businessName, businessRegNumber } = await request.json()
 
-  // Create a Supabase client with the service role key to perform admin operations
+  // Validate required fields
+  if (!email || !password || !role || !firstName || !lastName) {
+    return NextResponse.json({ error: 'Email, password, first name, last name, and role are required.' }, { status: 400 })
+  }
+
+  // Use the Supabase Admin client to securely perform this operation
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // 1. Create the user in Supabase Auth
+  // 1. Create the user in Supabase Auth, passing all info in app_metadata
+  // The enhanced database trigger will now handle the entire profile creation.
   const { data: { user }, error: creationError } = await supabaseAdmin.auth.admin.createUser({
     email,
     password,
-    email_confirm: true, // Set to true to send a confirmation email
+    email_confirm: true, // Send a confirmation email for security
     app_metadata: {
-      role: role,
-      // Pass other details here so the trigger can use them if needed,
-      // and for a complete record in auth.users
+      role,
       first_name: firstName,
       last_name: lastName,
-      phone: phone
+      phone,
     }
   })
 
@@ -35,26 +39,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to create user for an unknown reason.' }, { status: 500 })
   }
 
-  // The `handle_new_user` trigger will automatically create a profile.
-  // We just need to update it with the additional information.
-  const { error: profileError } = await supabaseAdmin
-    .from('profiles')
-    .update({
-      first_name: firstName,
-      last_name: lastName,
-      phone: phone
-    })
-    .eq('id', user.id)
-
-  if (profileError) {
-      // If profile update fails, we should ideally delete the auth user to avoid orphans.
-      // For now, we'll log the error and inform the client.
-      console.error(`Failed to update profile for user ${user.id}:`, profileError.message)
-      return NextResponse.json({ error: `User created, but failed to save profile: ${profileError.message}` }, { status: 500 })
-  }
-
-  // 2. If the user is a merchant, create an entry in the merchants table
+  // 2. If the user is a merchant, create their merchant record.
+  // This happens *after* the user and profile have been successfully created.
   if (role === 'merchant') {
+    if (!businessName) {
+        return NextResponse.json({ error: 'Business name is required for merchant registration.' }, { status: 400 })
+    }
     const { error: merchantError } = await supabaseAdmin
       .from('merchants')
       .insert({
@@ -64,11 +54,12 @@ export async function POST(request: Request) {
       })
 
     if (merchantError) {
-      // This is a critical failure. We have an auth user and a profile, but no merchant record.
+      // This is a critical failure. The user exists but is not a merchant.
+      // A more robust solution might delete the user to allow them to try again.
       console.error(`Failed to create merchant record for user ${user.id}:`, merchantError.message)
-      return NextResponse.json({ error: `User created, but failed to create merchant record: ${merchantError.message}` }, { status: 500 })
+      return NextResponse.json({ error: `User account created, but failed to create merchant record: ${merchantError.message}` }, { status: 500 })
     }
   }
 
-  return NextResponse.json({ message: 'User registered successfully. Please check your email for verification.' }, { status: 200 })
+  return NextResponse.json({ message: 'Registration successful! Please check your email for verification.' }, { status: 200 })
 }
