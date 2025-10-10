@@ -212,6 +212,7 @@ CREATE POLICY "Admins can manage all user_investments" ON public.user_investment
 -- RLS Policies for Users
 --
 -- Profiles
+CREATE POLICY "Users can insert their own profile" ON public.profiles FOR INSERT TO authenticated WITH CHECK (id = auth.uid());
 CREATE POLICY "Users can view their own profile" ON public.profiles FOR SELECT TO authenticated USING (id = auth.uid());
 CREATE POLICY "Users can update their own profile" ON public.profiles FOR UPDATE TO authenticated USING (id = auth.uid());
 
