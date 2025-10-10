@@ -17,7 +17,7 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Login State (kept for the login tab)
+  // Login State
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
@@ -76,42 +76,41 @@ export default function RegisterPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabase) return;
-
     if (regPassword !== regConfirmPassword) {
       toast.error("Passwords do not match.");
       return;
     }
-
     setIsLoading(true);
 
     try {
-      // Sign up the user
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: regEmail,
-        password: regPassword,
-        options: {
-          data: {
-            role: 'user',
-            first_name: regFirstName,
-            last_name: regLastName,
-            phone: regPhone,
-          },
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          email: regEmail,
+          password: regPassword,
+          firstName: regFirstName,
+          lastName: regLastName,
+          phone: regPhone,
+          role: 'user',
+        }),
       });
 
-      if (signUpError) {
-        toast.error(signUpError.message);
-        throw signUpError;
+      const result = await response.json();
+
+      if (!response.ok) {
+        toast.error(result.error || 'Registration failed.');
+        throw new Error(result.error || 'An unknown error occurred');
       }
 
-      // The trigger now handles profile creation, so we don't need a follow-up update.
-      // This simplifies the client-side logic and avoids potential race conditions.
+      toast.success(result.message || "Registration successful! Please check your email to verify your account.");
+      // You might want to clear the form or redirect the user
+      // For now, we'll just show the success message.
 
-      toast.success("Registration successful! Please check your email to verify your account.");
-
-    } catch (error) {
-      console.error("Registration failed:", error);
+    } catch (error: any) {
+      console.error("Registration submission failed:", error);
     } finally {
       setIsLoading(false);
     }
@@ -128,7 +127,7 @@ export default function RegisterPage() {
             <span className="text-3xl font-bold">Kelo</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Create Account
+            Create an Account
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-2">
             Join Kelo and start your BNPL journey
@@ -142,7 +141,6 @@ export default function RegisterPage() {
               <TabsTrigger value="register">Register</TabsTrigger>
             </TabsList>
             
-            {/* Login Tab */}
             <TabsContent value="login">
               <form onSubmit={handleLogin}>
                 <CardHeader>
@@ -152,92 +150,41 @@ export default function RegisterPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="Enter your email"
-                      required
-                      value={loginEmail}
-                      onChange={(e) => setLoginEmail(e.target.value)}
-                      disabled={isLoading}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Enter your password"
-                        required
-                        value={loginPassword}
-                        onChange={(e) => setLoginPassword(e.target.value)}
-                        disabled={isLoading}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </Button>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input id="email" type="email" placeholder="Enter your email" required value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} disabled={isLoading} />
                     </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="remember" disabled={isLoading} />
-                    <Label htmlFor="remember" className="text-sm">
-                      Remember me
-                    </Label>
-                  </div>
-
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Sign In
-                  </Button>
-
-                  <div className="text-center">
-                    <Link
-                      href="/auth/forgot-password"
-                      className="text-sm text-blue-600 hover:underline"
-                    >
-                      Forgot your password?
-                    </Link>
-                  </div>
-
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t" />
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Password</Label>
+                      <div className="relative">
+                        <Input id="password" type={showPassword ? "text" : "password"} placeholder="Enter your password" required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} disabled={isLoading} />
+                        <Button type="button" variant="ghost" size="sm" className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent" onClick={() => setShowPassword(!showPassword)}>
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
                     </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-card px-2 text-muted-foreground">
-                        Or continue with
-                      </span>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox id="remember" disabled={isLoading} />
+                      <Label htmlFor="remember" className="text-sm">Remember me</Label>
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <Button variant="outline" type="button" onClick={handleGoogleLogin} disabled={isLoading}>
-                      Google
+                    <Button type="submit" className="w-full" disabled={isLoading}>
+                      {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Sign In
                     </Button>
-                    <Button variant="outline" type="button" disabled={isLoading}>
-                      M-Pesa
-                    </Button>
-                  </div>
+                    <div className="text-center">
+                      <Link href="/auth/forgot-password" className="text-sm text-blue-600 hover:underline">
+                        Forgot your password?
+                      </Link>
+                    </div>
+                    <div className="relative"><div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div><div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">Or continue with</span></div></div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Button variant="outline" type="button" onClick={handleGoogleLogin} disabled={isLoading}>Google</Button>
+                      <Button variant="outline" type="button" disabled={isLoading}>M-Pesa</Button>
+                    </div>
                 </CardContent>
               </form>
             </TabsContent>
 
-            {/* Register Tab */}
             <TabsContent value="register">
               <form onSubmit={handleRegister}>
                 <CardHeader>
@@ -248,170 +195,44 @@ export default function RegisterPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="firstName">First Name</Label>
-                      <Input
-                        id="firstName"
-                        type="text"
-                        placeholder="First name"
-                        required
-                        value={regFirstName}
-                        onChange={(e) => setRegFirstName(e.target.value)}
-                        disabled={isLoading}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="lastName">Last Name</Label>
-                      <Input
-                        id="lastName"
-                        type="text"
-                        placeholder="Last name"
-                        required
-                        value={regLastName}
-                        onChange={(e) => setRegLastName(e.target.value)}
-                        disabled={isLoading}
-                      />
-                    </div>
+                    <div className="space-y-2"><Label htmlFor="firstName">First Name</Label><Input id="firstName" placeholder="First name" required value={regFirstName} onChange={(e) => setRegFirstName(e.target.value)} disabled={isLoading} /></div>
+                    <div className="space-y-2"><Label htmlFor="lastName">Last Name</Label><Input id="lastName" placeholder="Last name" required value={regLastName} onChange={(e) => setRegLastName(e.target.value)} disabled={isLoading} /></div>
                   </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="regEmail">Email</Label>
-                    <Input
-                      id="regEmail"
-                      type="email"
-                      placeholder="Enter your email"
-                      required
-                      value={regEmail}
-                      onChange={(e) => setRegEmail(e.target.value)}
-                      disabled={isLoading}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="+254 XXX XXX XXX"
-                      required
-                      value={regPhone}
-                      onChange={(e) => setRegPhone(e.target.value)}
-                      disabled={isLoading}
-                    />
-                  </div>
-
+                  <div className="space-y-2"><Label htmlFor="regEmail">Email</Label><Input id="regEmail" type="email" placeholder="Enter your email" required value={regEmail} onChange={(e) => setRegEmail(e.target.value)} disabled={isLoading} /></div>
+                  <div className="space-y-2"><Label htmlFor="phone">Phone Number</Label><Input id="phone" type="tel" placeholder="+254 XXX XXX XXX" required value={regPhone} onChange={(e) => setRegPhone(e.target.value)} disabled={isLoading} /></div>
                   <div className="space-y-2">
                     <Label htmlFor="regPassword">Password</Label>
                     <div className="relative">
-                      <Input
-                        id="regPassword"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Create a password"
-                        required
-                        value={regPassword}
-                        onChange={(e) => setRegPassword(e.target.value)}
-                        disabled={isLoading}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </Button>
+                      <Input id="regPassword" type={showPassword ? "text" : "password"} placeholder="Create a password" required value={regPassword} onChange={(e) => setRegPassword(e.target.value)} disabled={isLoading} />
+                      <Button type="button" variant="ghost" size="sm" className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
                     </div>
                   </div>
-
                   <div className="space-y-2">
                     <Label htmlFor="confirmPassword">Confirm Password</Label>
                     <div className="relative">
-                      <Input
-                        id="confirmPassword"
-                        type={showConfirmPassword ? "text" : "password"}
-                        placeholder="Confirm your password"
-                        required
-                        value={regConfirmPassword}
-                        onChange={(e) => setRegConfirmPassword(e.target.value)}
-                        disabled={isLoading}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      >
-                        {showConfirmPassword ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </Button>
+                      <Input id="confirmPassword" type={showConfirmPassword ? "text" : "password"} placeholder="Confirm your password" required value={regConfirmPassword} onChange={(e) => setRegConfirmPassword(e.target.value)} disabled={isLoading} />
+                      <Button type="button" variant="ghost" size="sm" className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>{showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
                     </div>
                   </div>
-
                   <div className="flex items-center space-x-2">
                     <Checkbox id="terms" required disabled={isLoading}/>
-                    <Label htmlFor="terms" className="text-sm">
-                      I agree to the{" "}
-                      <a href="#" className="text-blue-600 hover:underline">
-                        Terms of Service
-                      </a>{" "}
-                      and{" "}
-                      <a href="#" className="text-blue-600 hover:underline">
-                        Privacy Policy
-                      </a>
-                    </Label>
+                    <Label htmlFor="terms" className="text-sm">I agree to the <a href="#" className="text-blue-600 hover:underline">Terms of Service</a> and <a href="#" className="text-blue-600 hover:underline">Privacy Policy</a></Label>
                   </div>
-
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Create Account
-                  </Button>
-
-                  <div className="text-center">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Already have an account?{" "}
-                      <Link
-                        href="/auth/login"
-                        className="text-blue-600 hover:underline"
-                      >
-                        Sign in
-                      </Link>
-                    </p>
+                  <Button type="submit" className="w-full" disabled={isLoading}>{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Create Account</Button>
+                  <div className="relative"><div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div><div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">Or continue with</span></div></div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Button variant="outline" type="button" onClick={handleGoogleLogin} disabled={isLoading}>Google</Button>
+                    <Button variant="outline" type="button" disabled={isLoading}>M-Pesa</Button>
                   </div>
+                  <div className="text-center"><p className="text-sm text-gray-600 dark:text-gray-400">Already have an account? <Link href="/auth/login" className="text-blue-600 hover:underline">Sign in</Link></p></div>
                 </CardContent>
               </form>
             </TabsContent>
           </Tabs>
         </Card>
         
-        {/* Security Badge */}
-        <div className="mt-6 text-center">
-          <div className="inline-flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
-            <Shield className="h-4 w-4" />
-            <span>Your data is secure and encrypted</span>
-          </div>
-        </div>
-        
-        {/* Merchant Link */}
-        <div className="mt-4 text-center">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Are you a merchant?{" "}
-            <Link
-              href="/auth/merchant-register"
-              className="text-blue-600 hover:underline font-medium"
-            >
-              Register here
-            </Link>
-          </p>
-        </div>
+        <div className="mt-6 text-center"><div className="inline-flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400"><Shield className="h-4 w-4" /><span>Your data is secure and encrypted</span></div></div>
+        <div className="mt-4 text-center"><p className="text-sm text-gray-600 dark:text-gray-400">Are you a merchant? <Link href="/auth/merchant-register" className="text-blue-600 hover:underline font-medium">Register here</Link></p></div>
       </div>
     </div>
     </>
