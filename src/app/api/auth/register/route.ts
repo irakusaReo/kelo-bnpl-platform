@@ -20,6 +20,12 @@ export async function POST(request: Request) {
     email,
     password,
     email_confirm: true, // Send a confirmation email for security
+    user_metadata: {
+      first_name: firstName,
+      last_name: lastName,
+      phone,
+      role,
+    },
   })
 
   if (creationError) {
@@ -30,23 +36,6 @@ export async function POST(request: Request) {
   if (!user) {
     console.error('User not created, but no error was thrown.')
     return NextResponse.json({ error: 'Failed to create user for an unknown reason.' }, { status: 500 })
-  }
-
-  // 2. Manually insert the new profile into the public.profiles table
-  const { error: profileError } = await supabaseAdmin
-    .from('profiles')
-    .insert({
-      id: user.id,
-      role,
-      first_name: firstName,
-      last_name: lastName,
-      phone: phone
-    })
-
-  if (profileError) {
-      // If profile insert fails, we should ideally delete the auth user to avoid orphans.
-      console.error(`Failed to create profile for user ${user.id}:`, profileError.message)
-      return NextResponse.json({ error: `User account created, but failed to create profile: ${profileError.message}` }, { status: 500 })
   }
 
   // 3. If the user is a merchant, create their merchant record.
