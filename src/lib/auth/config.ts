@@ -84,4 +84,5 @@ export const getAuthOptions = (): AuthOptions => {
     signIn: "/auth/login",
   },
   secret: process.env.NEXTAUTH_SECRET,
+  }
 };
