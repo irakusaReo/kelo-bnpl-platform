@@ -69,6 +69,14 @@ export const authOptions: NextAuthOptions = {
       }
       return token;
     },
+    async redirect({ url, baseUrl }) {
+      // After a sign-in, redirect to the dashboard.
+      // This handles both credentials and OAuth providers.
+      if (url.startsWith("/")) return `${baseUrl}${url}`
+      // Allows callback URLs on the same origin
+      else if (new URL(url).origin === baseUrl) return url
+      return baseUrl + '/dashboard'
+    }
   },
   pages: {
     signIn: "/auth/login",
