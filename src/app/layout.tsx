@@ -3,6 +3,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { AuthProvider } from "@/contexts/AuthProvider";
 import { ThemeProvider } from "@/contexts/theme-context";
 import { UserProvider } from "@/contexts/UserContext";
 import { QueryProvider } from "@/lib/api/query-provider";
@@ -30,8 +31,13 @@ export const metadata: Metadata = {
     title: "Kelo - BNPL Platform",
     description: "Modern BNPL platform for Kenya with blockchain integration",
   },
-  viewport: "width=device-width, initial-scale=1",
 };
+
+export function generateViewport() {
+  return {
+    viewport: "width=device-width, initial-scale=1",
+  };
+}
 
 export default function RootLayout({
   children,
@@ -47,14 +53,16 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <QueryProvider>
-            <UserProvider>
-              <SocketProvider>
-                {children}
-                <Toaster />
-              </SocketProvider>
-            </UserProvider>
-          </QueryProvider>
+          <AuthProvider>
+            <QueryProvider>
+              <UserProvider>
+                <SocketProvider>
+                  {children}
+                  <Toaster />
+                </SocketProvider>
+              </UserProvider>
+            </QueryProvider>
+          </AuthProvider>
         </ThemeProvider>
         <Analytics />
       </body>

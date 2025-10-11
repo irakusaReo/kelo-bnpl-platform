@@ -17,12 +17,35 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        // This is where you'd connect to your database to validate credentials
-        // For now, we'll just return a mock user if credentials are provided
-        if (credentials) {
-          return { id: "1", name: "Test User", email: credentials.email };
+        if (!credentials?.email || !credentials.password) {
+          return null;
         }
-        return null;
+
+        const supabaseAdmin = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+
+        const { data, error } = await supabaseAdmin.auth.signInWithPassword({
+          email: credentials.email,
+          password: credentials.password,
+        });
+
+        if (error) {
+          // Supabase returns an error if login fails, which is expected.
+          // We return null to indicate failed authorization.
+          console.error("Supabase login error:", error.message);
+          return null;
+        }
+        if (!data.user) {
+          return null;
+        }
+
+        // The SupabaseAdapter expects a plain object, not the full Supabase user object.
+        return {
+          id: data.user.id,
+          email: data.user.email,
+        };
       },
     }),
   ],
