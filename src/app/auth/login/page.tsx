@@ -12,6 +12,7 @@ import { useState } from "react";
 import { useUser } from "@/contexts/UserContext";
 import { useRouter } from "next/navigation";
 import { Toaster, toast } from "sonner";
+import { signIn } from "next-auth/react";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -35,28 +36,22 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabase) return;
     setIsLoading(true);
 
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: loginEmail,
-        password: loginPassword,
-      });
+    const result = await signIn('credentials', {
+      redirect: false, // We handle redirection manually
+      email: loginEmail,
+      password: loginPassword,
+    });
 
-      if (error) {
-        toast.error(error.message);
-        throw error;
-      }
-
+    if (result?.error) {
+      toast.error("Login failed: Invalid credentials");
+    } else if (result?.ok) {
       toast.success("Login successful! Redirecting...");
       router.push('/dashboard');
-
-    } catch (error) {
-      console.error("Login failed:", error);
-    } finally {
-      setIsLoading(false);
     }
+
+    setIsLoading(false);
   };
 
   const handleGoogleLogin = async () => {
