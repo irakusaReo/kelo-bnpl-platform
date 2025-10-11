@@ -3,10 +3,12 @@ import { SupabaseAdapter } from "@auth/supabase-adapter";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { createClient } from "@supabase/supabase-js";
+import { AuthOptions } from "next-auth";
 
-export const authOptions: NextAuthOptions = {
-  providers: [
-    GoogleProvider({
+export const getAuthOptions = (): AuthOptions => {
+  return {
+    providers: [
+      GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
@@ -82,4 +84,5 @@ export const authOptions: NextAuthOptions = {
     signIn: "/auth/login",
   },
   secret: process.env.NEXTAUTH_SECRET,
+  }
 };
