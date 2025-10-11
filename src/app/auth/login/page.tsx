@@ -55,18 +55,9 @@ export default function LoginPage() {
   };
 
   const handleGoogleLogin = async () => {
-    if (!supabase) return;
     setIsLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${location.origin}/auth/callback`,
-      },
-    });
-    if (error) {
-        toast.error(error.message);
-        setIsLoading(false);
-    }
+    await signIn('google');
+    // No need to set loading to false here, as the page will redirect.
   }
 
   const handleRegister = async (e: React.FormEvent) => {
