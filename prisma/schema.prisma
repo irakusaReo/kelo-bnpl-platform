@@ -20,6 +20,8 @@ model User {
   emailVerified DateTime? @map("email_verified")
   image         String?
   walletAddress String?   @unique @map("wallet_address")
+  smartAccountAddress String? @unique @map("smart_account_address")
+  hederaDID     String?   @unique @map("hedera_did")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
