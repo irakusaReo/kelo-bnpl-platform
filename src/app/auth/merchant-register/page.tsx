@@ -8,9 +8,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Shield, Eye, EyeOff, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { useUser } from "@/contexts/UserContext";
 import { useRouter } from "next/navigation";
 import { Toaster, toast } from "sonner";
+import { signIn } from "next-auth/react";
 
 export default function MerchantRegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -28,22 +28,13 @@ export default function MerchantRegisterPage() {
 
 
   const [isLoading, setIsLoading] = useState(false);
-  const { supabase } = useUser();
   const router = useRouter();
 
   const handleGoogleLogin = async () => {
-    if (!supabase) return;
     setIsLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${location.origin}/auth/callback`,
-      },
-    });
-    if (error) {
-        toast.error(error.message);
-        setIsLoading(false);
-    }
+    // Note: Signing up a merchant with Google would require a more complex flow
+    // to collect business info post-authentication. This is a simple redirect.
+    await signIn('google');
   }
 
   const handleMerchantRegister = async (e: React.FormEvent) => {
@@ -54,38 +45,28 @@ export default function MerchantRegisterPage() {
     }
     setIsLoading(true);
 
-    try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          password,
-          firstName,
-          lastName,
-          phone,
-          role: 'merchant',
-          businessName,
-          businessRegNumber,
-        }),
-      });
+    const result = await signIn('credentials', {
+      redirect: false,
+      email,
+      password,
+      firstName,
+      lastName,
+      phone,
+      businessName,
+      businessRegNumber,
+      isRegister: 'true',
+      role: 'merchant', // Specify the role
+    });
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        toast.error(result.error || 'Registration failed.');
-        throw new Error(result.error || 'An unknown error occurred');
-      }
-
-      toast.success(result.message || "Registration successful! Please check your email to verify your account.");
-
-    } catch (error: any) {
-      console.error("Merchant registration submission failed:", error);
-    } finally {
-      setIsLoading(false);
+    if (result?.error) {
+      toast.error(`Registration failed: ${result.error}`);
+    } else if (result?.ok) {
+      toast.success("Merchant registration successful! Please check your email for verification.");
+      // Redirect to a specific merchant onboarding page or dashboard
+      router.push('/dashboard');
     }
+
+    setIsLoading(false);
   };
 
   return (

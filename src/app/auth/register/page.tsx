@@ -9,9 +9,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Shield, Eye, EyeOff, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { useUser } from "@/contexts/UserContext";
 import { useRouter } from "next/navigation";
 import { Toaster, toast } from "sonner";
+import { signIn } from "next-auth/react";
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -30,48 +30,33 @@ export default function RegisterPage() {
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
 
   const [isLoading, setIsLoading] = useState(false);
-  const { supabase } = useUser();
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabase) return;
     setIsLoading(true);
 
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: loginEmail,
-        password: loginPassword,
-      });
+    const result = await signIn('credentials', {
+      redirect: false,
+      email: loginEmail,
+      password: loginPassword,
+    });
 
-      if (error) {
-        toast.error(error.message);
-        throw error;
-      }
-
+    if (result?.error) {
+      toast.error("Login failed: Invalid credentials");
+    } else if (result?.ok) {
       toast.success("Login successful! Redirecting...");
       router.push('/dashboard');
-
-    } catch (error) {
-      console.error("Login failed:", error);
-    } finally {
-      setIsLoading(false);
     }
+
+    setIsLoading(false);
   };
 
   const handleGoogleLogin = async () => {
-    if (!supabase) return;
     setIsLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${location.origin}/auth/callback`,
-      },
-    });
-    if (error) {
-        toast.error(error.message);
-        setIsLoading(false);
-    }
+    // This will redirect the user to the Google login page
+    // and then back to the callback URL configured in NextAuth.
+    await signIn('google');
   }
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -82,36 +67,34 @@ export default function RegisterPage() {
     }
     setIsLoading(true);
 
-    try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: regEmail,
-          password: regPassword,
-          firstName: regFirstName,
-          lastName: regLastName,
-          phone: regPhone,
-          role: 'user',
-        }),
-      });
+    const result = await signIn('credentials', {
+      redirect: false, // Do not redirect automatically, we'll handle it
+      email: regEmail,
+      password: regPassword,
+      firstName: regFirstName,
+      lastName: regLastName,
+      phone: regPhone,
+      isRegister: 'true',
+    });
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        toast.error(result.error || 'Registration failed.');
-        throw new Error(result.error || 'An unknown error occurred');
-      }
-
-      toast.success(result.message || "Registration successful! Please check your email to verify your account.");
-
-    } catch (error: any) {
-      console.error("Registration submission failed:", error);
-    } finally {
-      setIsLoading(false);
+    if (result?.error) {
+      // The error from the `authorize` function will be passed here.
+      toast.error(`Registration failed: ${result.error}`);
+    } else if (result?.ok) {
+      // The user is created but might need email verification.
+      // NextAuth.js handles the session, but we inform the user.
+      toast.success("Registration successful! Please check your email for verification.");
+      // You could redirect them to a "please verify" page or directly to login.
+      // For this example, we'll just clear the form.
+      setRegFirstName('');
+      setRegLastName('');
+      setRegEmail('');
+      setRegPhone('');
+      setRegPassword('');
+      setRegConfirmPassword('');
     }
+
+    setIsLoading(false);
   };
 
   return (
@@ -220,7 +203,12 @@ export default function RegisterPage() {
                   <div className="relative"><div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div><div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">Or continue with</span></div></div>
                   <div className="grid grid-cols-2 gap-4">
                     <Button variant="outline" type="button" onClick={handleGoogleLogin} disabled={isLoading}>Google</Button>
-                    <Button variant="outline" type="button" disabled={isLoading}>M-Pesa</Button>
+                    <Button variant="outline" type="button" disabled={isLoading}>
+                      <svg width="24" height="24" viewBox="0 0 249 249" fill="none" xmlns="http://www.w3.org/2000/svg" className="mr-2 h-4 w-4">
+                        <path d="M0 19.671C0 12.9332 0 9.56425 1.26956 6.97276C2.48511 4.49151 4.49151 2.48511 6.97276 1.26956C9.56425 0 12.9332 0 19.671 0H229.329C236.067 0 239.436 0 242.027 1.26956C244.508 2.48511 246.515 4.49151 247.73 6.97276C249 9.56425 249 12.9332 249 19.671V229.329C249 236.067 249 239.436 247.73 242.027C246.515 244.508 244.508 246.515 242.027 247.73C239.436 249 236.067 249 229.329 249H19.671C12.9332 249 9.56425 249 6.97276 247.73C4.49151 246.515 2.48511 244.508 1.26956 242.027C0 239.436 0 236.067 0 229.329V19.671Z" fill="#0000FF"/>
+                      </svg>
+                      Base
+                    </Button>
                   </div>
                   <div className="text-center"><p className="text-sm text-gray-600 dark:text-gray-400">Already have an account? <Link href="/auth/login" className="text-blue-600 hover:underline">Sign in</Link></p></div>
                 </CardContent>
