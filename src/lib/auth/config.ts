@@ -4,17 +4,59 @@ import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { createClient } from "@supabase/supabase-js";
 import { AuthOptions } from "next-auth";
+import { SiweMessage } from "siwe";
 
 export const getAuthOptions = (): AuthOptions => {
   return {
     providers: [
       GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
-    CredentialsProvider({
-      name: "Credentials",
-      credentials: {
+        clientId: process.env.GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      }),
+      CredentialsProvider({
+        id: "siwe",
+        name: "Ethereum",
+        credentials: {
+          message: { label: "Message", type: "text" },
+          signature: { label: "Signature", type: "text" },
+        },
+        async authorize(credentials) {
+          try {
+            const siwe = new SiweMessage(JSON.parse(credentials?.message || "{}"));
+
+            const result = await siwe.verify({
+              signature: credentials?.signature || "",
+              nonce: await getCsrfToken({ req: { headers: req.headers } }),
+            });
+
+            if (result.success) {
+              const { address } = siwe;
+
+              const user = await prisma.user.findUnique({
+                where: { walletAddress: address },
+              });
+
+              if (user) {
+                return user;
+              }
+
+              const newUser = await prisma.user.create({
+                data: {
+                  walletAddress: address,
+                },
+              });
+
+              return newUser;
+            }
+            return null;
+          } catch (e) {
+            return null;
+          }
+        },
+      }),
+      CredentialsProvider({
+        name: "Credentials",
+        credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
         firstName: { label: "First Name", type: "text" },
