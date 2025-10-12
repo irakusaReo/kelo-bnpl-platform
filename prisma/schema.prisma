@@ -1,32 +1,33 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime? @map("email_verified")
-  image         String?
-  walletAddress String?   @unique @map("wallet_address")
-  smartAccountAddress String? @unique @map("smart_account_address")
-  hederaDID     String?   @unique @map("hedera_did")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  id                  String    @id @default(cuid())
+  name                String?
+  email               String?   @unique
+  emailVerified       DateTime? @map("email_verified")
+  image               String?
+  walletAddress       String?   @unique @map("wallet_address")
+  smartAccountAddress String?   @unique @map("smart_account_address")
+  hederaDID           String?   @unique @map("hedera_did")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
 
-  accounts Account[]
-  sessions Session[]
+  accounts       Account[]
+  sessions       Session[]
+  merchantStores MerchantStore[]
+  orders         Order[]
+  loans          Loan[]
+  investments    UserInvestment[]
 }
 
 model Account {
@@ -68,12 +69,102 @@ model VerificationToken {
   @@map("verification_tokens")
 }
 
-model Post {
+model MerchantStore {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  ownerId     String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  owner    User      @relation(fields: [ownerId], references: [id])
+  products Product[]
+}
+
+model Product {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+  storeId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  store     MerchantStore @relation(fields: [storeId], references: [id])
+  orderItems OrderItem[]
+}
+
+model Order {
+  id        String      @id @default(cuid())
+  userId    String
+  status    String      // e.g., PENDING, COMPLETED, FAILED
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  user      User        @relation(fields: [userId], references: [id])
+  items     OrderItem[]
+  loan      Loan?
+}
+
+model OrderItem {
   id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
+  orderId   String
+  productId String
+  quantity  Int
+  price     Float // Price at the time of purchase
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+
+  order   Order   @relation(fields: [orderId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model Loan {
+  id              String       @id @default(cuid())
+  orderId         String       @unique
+  userId          String
+  amount          Float
+  interestRate    Float
+  status          String       // e.g., ACTIVE, REPAID, DEFAULTED
+  hederaNftId     String?      // Hedera Token ID for the loan agreement NFT
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  order      Order        @relation(fields: [orderId], references: [id])
+  user       User         @relation(fields: [userId], references: [id])
+  repayments Repayment[]
+}
+
+model Repayment {
+  id        String   @id @default(cuid())
+  loanId    String
+  amount    Float
+  status    String   // e.g., PENDING, PAID, OVERDUE
+  dueDate   DateTime
+  paidAt    DateTime?
+  createdAt DateTime @default(now())
+
+  loan Loan @relation(fields: [loanId], references: [id])
+}
+
+model LiquidityPool {
+  id              String           @id @default(cuid())
+  name            String
+  totalValueLocked Float
+  apy             Float
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  investments UserInvestment[]
+}
+
+model UserInvestment {
+  id        String   @id @default(cuid())
+  userId    String
+  poolId    String
+  amount    Float
+  sharePrice Float   // Price at which the user invested
+  createdAt DateTime @default(now())
+
+  user User          @relation(fields: [userId], references: [id])
+  pool LiquidityPool @relation(fields: [poolId], references: [id])
 }
