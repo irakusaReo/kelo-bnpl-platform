@@ -22,6 +22,7 @@ func NewHandler(service *Service) *Handler {
 func (h *Handler) RegisterRoutes(router gin.IRouter) {
 	productRoutes := router.Group("/products")
 	{
+		productRoutes.GET("/", h.GetProducts)
 		productRoutes.GET("/:id", h.GetProduct)
 		productRoutes.POST("/", middleware.AuthMiddleware("merchant"), h.CreateProduct)
 		productRoutes.PUT("/:id", middleware.AuthMiddleware("merchant"), h.UpdateProduct)
@@ -63,6 +64,18 @@ func (h *Handler) GetProduct(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, product)
+}
+
+// GetProducts retrieves all products, optionally filtered by category.
+func (h *Handler) GetProducts(c *gin.Context) {
+	category := c.Query("category")
+	products, err := h.service.GetProducts(category)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, products)
 }
 
 // GetProductsByStore retrieves all products for a store.

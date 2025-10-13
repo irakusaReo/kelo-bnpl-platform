@@ -46,10 +46,54 @@ func (s *Service) GetProduct(productID string) (*models.Product, error) {
 	return &products[0], nil
 }
 
+// GetProducts retrieves all products from INTEGRATED merchants, optionally filtered by category.
+func (s *Service) GetProducts(category string) ([]models.Product, error) {
+	// Step 1: Get the IDs of all INTEGRATED stores
+	var integratedStores []struct {
+		ID string `json:"id"`
+	}
+	storeData, _, err := s.db.From("merchant_stores").Select("id", "exact", false).Eq("integrationType", "INTEGRATED").Execute()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get integrated stores: %w", err)
+	}
+	if err := json.Unmarshal(storeData, &integratedStores); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal integrated stores: %w", err)
+	}
+
+	if len(integratedStores) == 0 {
+		// No integrated stores, so no products to return
+		return []models.Product{}, nil
+	}
+
+	var storeIDs []string
+	for _, store := range integratedStores {
+		storeIDs = append(storeIDs, store.ID)
+	}
+
+	// Step 2: Fetch products belonging to those stores
+	var products []models.Product
+	query := s.db.From("products").Select("*", "exact", false).In("storeId", storeIDs)
+
+	if category != "" {
+		query = query.Eq("category", category)
+	}
+	data, _, err := query.Execute()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get products: %w", err)
+	}
+
+	if err := json.Unmarshal(data, &products); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal products: %w", err)
+	}
+
+	return products, nil
+}
+
+
 // GetProductsByStore retrieves all products for a given merchant store.
 func (s *Service) GetProductsByStore(storeID string) ([]models.Product, error) {
 	var products []models.Product
-	data, _, err := s.db.From("products").Select("*", "exact", false).Eq("merchant_store_id", storeID).Execute()
+	data, _, err := s.db.From("products").Select("*", "exact", false).Eq("storeId", storeID).Execute()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get products by store: %w", err)
 	}

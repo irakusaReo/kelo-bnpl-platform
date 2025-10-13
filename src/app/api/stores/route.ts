@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// This route acts as a proxy to the Go backend for products.
-const BACKEND_URL = 'http://localhost:8080/products';
+// This route acts as a proxy to the Go backend.
+// In a real production environment, this URL would be an environment variable.
+const BACKEND_URL = 'http://localhost:8080/stores';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -14,18 +15,16 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Fetch from the Go backend
     const response = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
       },
-      // Using no-cache to ensure fresh data during development
-      cache: 'no-store',
     });
 
     if (!response.ok) {
+      // Forward the error response from the backend
       const errorData = await response.text();
-      return new NextResponse(errorData, { status: response.status, statusText: response.statusText });
+      return new NextResponse(errorData, { status: response.status });
     }
 
     const data = await response.json();

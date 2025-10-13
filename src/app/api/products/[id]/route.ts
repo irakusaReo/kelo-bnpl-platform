@@ -1,25 +1,26 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// This route acts as a proxy to the Go backend for products.
+// This route acts as a proxy to the Go backend for a single product.
 const BACKEND_URL = 'http://localhost:8080/products';
 
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const category = searchParams.get('category');
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const { id } = params;
 
-  let url = BACKEND_URL;
-  if (category) {
-    url += `?category=${category}`;
+  if (!id) {
+    return new NextResponse('Product ID is required', { status: 400 });
   }
 
+  const url = `${BACKEND_URL}/${id}`;
+
   try {
-    // Fetch from the Go backend
     const response = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
       },
-      // Using no-cache to ensure fresh data during development
       cache: 'no-store',
     });
 
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(data);
 
   } catch (error) {
-    console.error('API route error:', error);
+    console.error(`API route error for product ${id}:`, error);
     return new NextResponse('Internal Server Error', { status: 500 });
   }
 }

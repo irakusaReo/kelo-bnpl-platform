@@ -69,28 +69,37 @@ model VerificationToken {
   @@map("verification_tokens")
 }
 
+enum IntegrationType {
+  INTEGRATED
+  PARTNER
+}
+
 model MerchantStore {
-  id          String    @id @default(cuid())
-  name        String
-  description String?
-  ownerId     String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id              String          @id @default(cuid())
+  name            String
+  description     String?
+  ownerId         String
+  integrationType IntegrationType
+  externalUrl     String?
+  category        String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
   owner    User      @relation(fields: [ownerId], references: [id])
   products Product[]
 }
 
 model Product {
-  id          String  @id @default(cuid())
+  id          String   @id @default(cuid())
   name        String
   description String?
   price       Float
   storeId     String
+  category    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  store     MerchantStore @relation(fields: [storeId], references: [id])
+  store      MerchantStore @relation(fields: [storeId], references: [id])
   orderItems OrderItem[]
 }
 

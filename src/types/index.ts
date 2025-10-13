@@ -1,93 +1,44 @@
-// These type definitions are based on the Supabase schema in `db/supabase_schema.sql`
+// Core application types, aligned with the Prisma schema and Go models.
 
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[]
+export type IntegrationType = 'INTEGRATED' | 'PARTNER';
 
-export interface Database {
-  public: {
-    Tables: {
-      profiles: {
-        Row: {
-          id: string
-          role: 'user' | 'merchant' | 'admin'
-          wallet_address: string | null
-          created_at: string
-          updated_at: string
-          first_name: string | null
-          last_name: string | null
-          phone: string | null
-          did: string | null
-        }
-        Insert: {
-          id: string
-          role?: 'user' | 'merchant' | 'admin'
-          wallet_address?: string | null
-          created_at?: string
-          updated_at?: string
-          first_name?: string | null
-          last_name?: string | null
-          phone?: string | null
-          did?: string | null
-        }
-        Update: {
-          id?: string
-          role?: 'user' | 'merchant' | 'admin'
-          wallet_address?: string | null
-          created_at?: string
-          updated_at?: string
-          first_name?: string | null
-          last_name?: string | null
-          phone?: string | null
-          did?: string | null
-        }
-      }
-      merchants: {
-        Row: {
-          id: string
-          business_name: string
-          business_registration_number: string | null
-          business_address: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id: string
-          business_name: string
-          business_registration_number?: string | null
-          business_address?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          business_name?: string
-          business_registration_number?: string | null
-          business_address?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      // Add other table types here as needed...
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      handle_new_user: {
-        Args: Record<string, unknown>
-        Returns: unknown
-      }
-    }
-    Enums: {
-      user_role: 'user' | 'merchant' | 'admin'
-    }
-  }
+export interface MerchantStore {
+  id: string;
+  name: string;
+  description?: string;
+  ownerId: string;
+  integrationType: IntegrationType;
+  externalUrl?: string;
+  category?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-// Custom type alias for Profile for easier use in the app
-export type Profile = Database['public']['Tables']['profiles']['Row'];
+export interface Product {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  storeId: string;
+  category?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Order {
+  id: string;
+  userId: string;
+  status: string; // e.g., PENDING, COMPLETED, FAILED
+  createdAt: string;
+  updatedAt: string;
+  items: OrderItem[];
+}
+
+export interface OrderItem {
+  id: string;
+  orderId: string;
+  productId: string;
+  quantity: number;
+  price: number; // Price at the time of purchase
+  createdAt: string;
+}

@@ -44,9 +44,13 @@ func (s *Service) GetStore(storeID string) (*models.MerchantStore, error) {
 }
 
 // GetStores retrieves all merchant stores.
-func (s *Service) GetStores() ([]models.MerchantStore, error) {
+func (s *Service) GetStores(category string) ([]models.MerchantStore, error) {
 	var stores []models.MerchantStore
-	data, _, err := s.db.From("merchant_stores").Select("*", "exact", false).Execute()
+	query := s.db.From("merchant_stores").Select("*", "exact", false)
+	if category != "" {
+		query = query.Eq("category", category)
+	}
+	data, _, err := query.Execute()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get merchant stores: %w", err)
 	}
