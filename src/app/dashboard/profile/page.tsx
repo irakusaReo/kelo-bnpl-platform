@@ -1,8 +1,9 @@
+import { ProfileManagement } from "@/components/dashboard/ProfileManagement";
+
 export default function ProfilePage() {
   return (
-    <div className="profile">
-      <h1>My Profile</h1>
-      <p>Manage your profile information</p>
+    <div className="container mx-auto p-4 md:p-8">
+      <ProfileManagement />
     </div>
-  )
+  );
 }
