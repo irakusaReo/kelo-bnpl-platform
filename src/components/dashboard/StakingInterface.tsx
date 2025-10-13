@@ -12,6 +12,8 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 import { useWallet } from '@/hooks/blockchain/useWallet'
+import { useUser } from '@/contexts/UserContext'
+import { ethers } from 'ethers'
 import { 
   TrendingUp, 
   DollarSign, 
@@ -25,97 +27,88 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Calendar,
-  Percent
+  Percent,
+  Loader2
 } from 'lucide-react'
 import type { StakingPool, UserStake } from '@/types/dashboard'
 
-// Mock data for demonstration
-const mockStakingPools: StakingPool[] = [
-  {
-    id: '1',
-    name: 'USDC Stable Pool',
-    chain: 'ethereum',
-    token: 'USDC',
-    apy: 8.5,
-    totalStaked: 2500000,
-    tvl: 2500000,
-    minStake: 100,
-    maxStake: 100000,
-    lockPeriod: 30,
-    riskLevel: 'low'
-  },
-  {
-    id: '2',
-    name: 'USDT Polygon Pool',
-    chain: 'polygon',
-    token: 'USDT',
-    apy: 12.3,
-    totalStaked: 1800000,
-    tvl: 1800000,
-    minStake: 50,
-    maxStake: 50000,
-    lockPeriod: 7,
-    riskLevel: 'low'
-  },
-  {
-    id: '3',
-    name: 'DAI Hedera Pool',
-    chain: 'hedera',
-    token: 'DAI',
-    apy: 15.7,
-    totalStaked: 900000,
-    tvl: 900000,
-    minStake: 25,
-    maxStake: 25000,
-    lockPeriod: 14,
-    riskLevel: 'medium'
-  },
-  {
-    id: '4',
-    name: 'BUSD BSC Pool',
-    chain: 'binance',
-    token: 'BUSD',
-    apy: 10.2,
-    totalStaked: 3200000,
-    tvl: 3200000,
-    minStake: 75,
-    maxStake: 75000,
-    lockPeriod: 21,
-    riskLevel: 'low'
-  }
+const KeloLiquidityPoolABI = [
+  "function deposit(address _token, uint256 _amount) public",
+  "function withdraw(address _token, uint256 _amount) public",
 ]
 
-const mockUserStakes: UserStake[] = [
-  {
-    id: '1',
-    poolId: '1',
-    amount: 5000,
-    stakedAt: '2024-01-15T10:30:00Z',
-    rewards: 356.25,
-    isActive: true,
-    estimatedApy: 8.5
-  },
-  {
-    id: '2',
-    poolId: '2',
-    amount: 2500,
-    stakedAt: '2024-02-01T14:15:00Z',
-    rewards: 256.25,
-    isActive: true,
-    estimatedApy: 12.3
-  }
+const ERC20ABI = [
+  "function approve(address spender, uint256 amount) public returns (bool)",
+  "function allowance(address owner, address spender) public view returns (uint256)",
 ]
+
 
 export function StakingInterface() {
   const { toast } = useToast()
   const { wallet, isConnected } = useWallet()
-  const [isLoading, setIsLoading] = useState(false)
-  const [stakingPools, setStakingPools] = useState<StakingPool[]>(mockStakingPools)
-  const [userStakes, setUserStakes] = useState<UserStake[]>(mockUserStakes)
+  const { user, supabase, isLoading: isUserLoading } = useUser()
+
+  const [isLoading, setIsLoading] = useState(true)
+  const [stakingPools, setStakingPools] = useState<StakingPool[]>([])
+  const [userStakes, setUserStakes] = useState<UserStake[]>([])
   const [selectedPool, setSelectedPool] = useState<StakingPool | null>(null)
   const [stakeAmount, setStakeAmount] = useState('')
   const [isStaking, setIsStaking] = useState(false)
   const [isUnstaking, setIsUnstaking] = useState(false)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!supabase || !user) return;
+
+      setIsLoading(true);
+
+      // Fetch Staking Pools
+      const { data: poolsData, error: poolsError } = await supabase
+        .from('liquidity_pools')
+        .select('*, contract_address, token_address');
+
+      if (poolsError) {
+        console.error("Error fetching staking pools:", poolsError);
+        toast({ title: 'Error', description: 'Could not fetch staking pools.', variant: 'destructive' });
+      } else {
+        setStakingPools(poolsData as StakingPool[]);
+      }
+
+      // Fetch User Stakes
+      const { data: stakesData, error: stakesError } = await supabase
+        .from('user_investments')
+        .select(`
+          *,
+          liquidity_pools ( * )
+        `)
+        .eq('user_id', user.id);
+
+      if (stakesError) {
+        console.error("Error fetching user stakes:", stakesError);
+        toast({ title: 'Error', description: 'Could not fetch your stakes.', variant: 'destructive' });
+      } else {
+         const formattedStakes = stakesData.map((stake: any) => ({
+            id: stake.id,
+            poolId: stake.pool_id,
+            amount: stake.staked_amount,
+            stakedAt: stake.created_at,
+            rewards: stake.rewards_earned,
+            isActive: stake.is_active,
+            estimatedApy: stake.liquidity_pools.apy,
+        }));
+        setUserStakes(formattedStakes as UserStake[]);
+      }
+
+      setIsLoading(false);
+    };
+
+    if (user && supabase) {
+      fetchData();
+    } else if (!isUserLoading) {
+        setIsLoading(false)
+    }
+  }, [user, supabase, isUserLoading, toast]);
+
 
   const getRiskLevelColor = (riskLevel: StakingPool['riskLevel']) => {
     switch (riskLevel) {
@@ -162,7 +155,7 @@ export function StakingInterface() {
   }
 
   const handleStake = async () => {
-    if (!isConnected) {
+    if (!isConnected || !user || !supabase || !wallet || !providerInstance) {
       toast({
         title: 'Wallet Not Connected',
         description: 'Please connect your wallet to stake tokens.',
@@ -192,11 +185,46 @@ export function StakingInterface() {
 
     setIsStaking(true)
     try {
-      // Simulate staking process
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      // 1. Check network and switch if necessary
+      if (wallet.network.toLowerCase() !== selectedPool.chain) {
+        toast({ title: 'Switching Network...', description: `Please switch to the ${selectedPool.chain} network in your wallet.` })
+        await switchNetwork(selectedPool.chain)
+      }
+
+      const web3Provider = new ethers.BrowserProvider(providerInstance)
+      const signer = await web3Provider.getSigner()
+      const amountToStake = ethers.parseUnits(stakeAmount, 6) // Assuming 6 decimals for USDC/USDT
+
+      // 2. Approve the contract to spend tokens
+      const tokenContract = new ethers.Contract(selectedPool.tokenAddress, ERC20ABI, signer)
       
+      toast({ title: 'Requesting Approval', description: 'Please approve the transaction in your wallet.' })
+      const approveTx = await tokenContract.approve(selectedPool.contractAddress, amountToStake)
+      await approveTx.wait()
+
+      toast({ title: 'Approval Successful', description: 'Proceeding with the stake transaction.' })
+
+      // 3. Call the deposit function
+      const poolContract = new ethers.Contract(selectedPool.contractAddress, KeloLiquidityPoolABI, signer)
+
+      const depositTx = await poolContract.deposit(selectedPool.tokenAddress, amountToStake)
+      await depositTx.wait()
+
+      // 4. On successful transaction, record it in our database
+       const { data, error } = await supabase
+        .from('user_investments')
+        .insert({
+          user_id: user.id,
+          pool_id: selectedPool.id,
+          staked_amount: amount,
+          is_active: true,
+        })
+        .select()
+
+       if (error) throw new Error(error.message)
+
       const newStake: UserStake = {
-        id: Date.now().toString(),
+        id: data[0].id,
         poolId: selectedPool.id,
         amount,
         stakedAt: new Date().toISOString(),
@@ -207,13 +235,6 @@ export function StakingInterface() {
 
       setUserStakes(prev => [...prev, newStake])
       
-      // Update pool total staked
-      setStakingPools(prev => prev.map(pool => 
-        pool.id === selectedPool.id 
-          ? { ...pool, totalStaked: pool.totalStaked + amount }
-          : pool
-      ))
-
       toast({
         title: 'Staking Successful',
         description: `Successfully staked ${formatCurrency(amount)} in ${selectedPool.name}.`,
@@ -222,9 +243,10 @@ export function StakingInterface() {
       setStakeAmount('')
       setSelectedPool(null)
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.'
       toast({
         title: 'Staking Failed',
-        description: 'Failed to stake tokens. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       })
     } finally {
@@ -233,7 +255,7 @@ export function StakingInterface() {
   }
 
   const handleUnstake = async (stakeId: string) => {
-    if (!isConnected) {
+    if (!isConnected || !user || !supabase || !wallet || !providerInstance) {
       toast({
         title: 'Wallet Not Connected',
         description: 'Please connect your wallet to unstake tokens.',
@@ -244,11 +266,37 @@ export function StakingInterface() {
 
     setIsUnstaking(true)
     try {
-      // Simulate unstaking process
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      const stakeToUnstake = userStakes.find(s => s.id === stakeId)
+      if (!stakeToUnstake) throw new Error("Stake not found")
+
+      const pool = stakingPools.find(p => p.id === stakeToUnstake.poolId)
+      if (!pool) throw new Error("Associated pool not found")
+
+      // 1. Check network and switch if necessary
+      if (wallet.network.toLowerCase() !== pool.chain) {
+        toast({ title: 'Switching Network...', description: `Please switch to the ${pool.chain} network in your wallet.` })
+        await switchNetwork(pool.chain)
+      }
+
+      const web3Provider = new ethers.BrowserProvider(providerInstance)
+      const signer = await web3Provider.getSigner()
+      const amountToUnstake = ethers.parseUnits(stakeToUnstake.amount.toString(), 6) // Assuming 6 decimals
+
+      // 2. Call the withdraw function
+      const poolContract = new ethers.Contract(pool.contractAddress, KeloLiquidityPoolABI, signer)
+
+      toast({ title: 'Requesting Withdrawal', description: 'Please approve the transaction in your wallet.' })
+      const withdrawTx = await poolContract.withdraw(pool.tokenAddress, amountToUnstake)
+      await withdrawTx.wait()
       
-      const stake = userStakes.find(s => s.id === stakeId)
-      if (!stake) return
+      // 3. On successful transaction, update our database
+      const { error } = await supabase
+        .from('user_investments')
+        .update({ is_active: false })
+        .eq('id', stakeId)
+
+      if (error) throw new Error(error.message)
+
 
       setUserStakes(prev => prev.map(s => 
         s.id === stakeId 
@@ -256,21 +304,15 @@ export function StakingInterface() {
           : s
       ))
 
-      // Update pool total staked
-      setStakingPools(prev => prev.map(pool => 
-        pool.id === stake.poolId 
-          ? { ...pool, totalStaked: pool.totalStaked - stake.amount }
-          : pool
-      ))
-
       toast({
         title: 'Unstaking Successful',
-        description: `Successfully unstaked ${formatCurrency(stake.amount)}.`,
+        description: `Successfully unstaked ${formatCurrency(stakeToUnstake.amount)}.`,
       })
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.'
       toast({
         title: 'Unstaking Failed',
-        description: 'Failed to unstake tokens. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       })
     } finally {
@@ -287,8 +329,17 @@ export function StakingInterface() {
     .reduce((sum, stake) => sum + stake.rewards, 0)
 
   const averageApy = userStakes.length > 0
-    ? userStakes.reduce((sum, stake) => sum + stake.estimatedApy, 0) / userStakes.length
+    ? (userStakes.reduce((sum, stake) => sum + stake.estimatedApy, 0) / userStakes.length)
+    .toFixed(1)
     : 0
+
+ if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
+  }
 
   return (
     <div className="p-8 space-y-6">
@@ -336,7 +387,7 @@ export function StakingInterface() {
             <Percent className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{averageApy.toFixed(1)}%</div>
+            <div className="text-2xl font-bold">{averageApy}%</div>
             <p className="text-xs text-muted-foreground">
               Weighted average
             </p>
