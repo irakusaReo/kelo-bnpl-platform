@@ -46,6 +46,8 @@ export interface StakingPool {
   maxStake: number
   lockPeriod: number
   riskLevel: 'low' | 'medium' | 'high'
+  contractAddress: string
+  tokenAddress: string
 }
 
 export interface UserStake {

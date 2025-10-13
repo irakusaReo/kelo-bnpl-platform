@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useToast } from '@/hooks/use-toast'
@@ -143,12 +144,19 @@ export function LoanManagement() {
               </CardContent>
               <CardFooter>
                  {loan.status === 'active' && (
-                    <Button onClick={() => {
-                      toast({
-                        title: "Feature Coming Soon",
-                        description: "The ability to make payments directly from the dashboard is currently under development.",
-                      })
-                    }}>Make a Payment</Button>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button>Make a Payment</Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Payment Feature Coming Soon</DialogTitle>
+                          <DialogDescription>
+                            We are working hard to bring you a seamless payment experience directly from your dashboard. Soon, you will be able to pay your installments using M-Pesa, bank transfer, or even cryptocurrency.
+                          </DialogDescription>
+                        </DialogHeader>
+                      </DialogContent>
+                    </Dialog>
                  )}
               </CardFooter>
             </Card>
