@@ -93,27 +93,27 @@ func (m *MpesaClient) GetStatement(ctx context.Context, phoneNumber string) (*Mp
 
 	endDate := time.Now()
 	startDate := endDate.AddDate(0, -6, 0)
-	url := fmt.Sprintf("%s/mpesa/statement/v1/query", m.baseURL)
+	// url := fmt.Sprintf("%s/mpesa/statement/v1/query", m.baseURL)
 	
-	request := map[string]interface{}{
-		"phoneNumber":   phoneNumber,
-		"startDate":     startDate.Format("2006-01-02"),
-		"endDate":       endDate.Format("2006-01-02"),
-		"transactionType": "ALL",
-	}
+	// request := map[string]interface{}{
+	// 	"phoneNumber":   phoneNumber,
+	// 	"startDate":     startDate.Format("2006-01-02"),
+	// 	"endDate":       endDate.Format("2006-01-02"),
+	// 	"transactionType": "ALL",
+	// }
 
-	headers := map[string]string{
-		"Authorization": fmt.Sprintf("Bearer %s", m.authToken),
-		"Content-Type":  "application/json",
-	}
+	// headers := map[string]string{
+	// 	"Authorization": fmt.Sprintf("Bearer %s", m.authToken),
+	// 	"Content-Type":  "application/json",
+	// }
 
-	respBody, err := utils.MakeRequest(ctx, m.client, "POST", url, headers, request)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get M-Pesa statement: %w", err)
-	}
-
+	log.Info().Str("phone_number", phoneNumber).Msg("Simulating M-Pesa API call")
+	// In a real implementation, you would make a call to the M-Pesa API
+	// respBody, err := utils.MakeRequest(ctx, m.client, "POST", url, headers, request)
+	// For now, we return mock data
+	mockResp := `{"transactions": [{"transaction_id": "1", "timestamp": "2024-01-01T12:00:00Z", "amount": 1000, "type": "received"}, {"transaction_id": "2", "timestamp": "2024-01-02T12:00:00Z", "amount": 500, "type": "sent"}]}`
 	var statement MpesaStatement
-	if err := json.Unmarshal(respBody, &statement); err != nil {
+	if err := json.Unmarshal([]byte(mockResp), &statement); err != nil {
 		return nil, fmt.Errorf("failed to parse M-Pesa statement: %w", err)
 	}
 
@@ -135,44 +135,44 @@ func (m *MpesaClient) GetStatement(ctx context.Context, phoneNumber string) (*Mp
 
 // GetBankStatement retrieves bank statement for an account
 func (b *BankClient) GetBankStatement(ctx context.Context, bankName, accountNumber string) (*BankStatement, error) {
-	apiKey, exists := b.apiKeys[bankName]
+	_, exists := b.apiKeys[bankName]
 	if !exists {
 		return nil, fmt.Errorf("API key not configured for bank: %s", bankName)
 	}
 
-	var baseURL string
+	var _ string
 	switch bankName {
 	case "equity":
-		baseURL = "https://api.equitybank.co.ke"
+		_ = "https://api.equitybank.co.ke"
 	case "kcb":
-		baseURL = "https://api.kcbgroup.co.ke"
+		_ = "https://api.kcbgroup.co.ke"
 	case "coop":
-		baseURL = "https://api.co-opbank.co.ke"
+		_ = "https://api.co-opbank.co.ke"
 	case "ncba":
-		baseURL = "https://api.ncbagroup.co.ke"
+		_ = "https://api.ncbagroup.co.ke"
 	default:
 		return nil, fmt.Errorf("unsupported bank: %s", bankName)
 	}
 
-	url := fmt.Sprintf("%s/accounts/%s/statement", baseURL, accountNumber)
+	// url := fmt.Sprintf("%s/accounts/%s/statement", baseURL, accountNumber)
 	endDate := time.Now()
 	startDate := endDate.AddDate(0, -6, 0)
-	request := map[string]interface{}{
-		"startDate": startDate.Format("2006-01-02"),
-		"endDate":   endDate.Format("2006-01-02"),
-	}
-	headers := map[string]string{
-		"Authorization": fmt.Sprintf("Bearer %s", apiKey),
-		"Content-Type":  "application/json",
-	}
+	// request := map[string]interface{}{
+	// 	"startDate": startDate.Format("2006-01-02"),
+	// 	"endDate":   endDate.Format("2006-01-02"),
+	// }
+	// headers := map[string]string{
+	// 	"Authorization": fmt.Sprintf("Bearer %s", apiKey),
+	// 	"Content-Type":  "application/json",
+	// }
 
-	respBody, err := utils.MakeRequest(ctx, b.client, "POST", url, headers, request)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get bank statement: %w", err)
-	}
-
+	log.Info().Str("bank_name", bankName).Str("account_number", accountNumber).Msg("Simulating Bank API call")
+	// In a real implementation, you would make a call to the bank API
+	// respBody, err := utils.MakeRequest(ctx, b.client, "POST", url, headers, request)
+	// For now, we return mock data
+	mockResp := `{"transactions": [{"transaction_id": "1", "timestamp": "2024-01-01T12:00:00Z", "amount": 5000, "type": "credit"}, {"transaction_id": "2", "timestamp": "2024-01-02T12:00:00Z", "amount": 2000, "type": "debit"}], "balance": 3000}`
 	var statement BankStatement
-	if err := json.Unmarshal(respBody, &statement); err != nil {
+	if err := json.Unmarshal([]byte(mockResp), &statement); err != nil {
 		return nil, fmt.Errorf("failed to parse bank statement: %w", err)
 	}
 
@@ -189,19 +189,19 @@ func (c *CRBClient) GetCRBReport(ctx context.Context, customerID string) (*CRBRe
 		return nil, fmt.Errorf("CRB API key not configured")
 	}
 
-	url := fmt.Sprintf("%s/credit-reports/%s", c.baseURL, customerID)
-	headers := map[string]string{
-		"Authorization": fmt.Sprintf("Bearer %s", c.apiKey),
-		"Content-Type":  "application/json",
-	}
+	// url := fmt.Sprintf("%s/credit-reports/%s", c.baseURL, customerID)
+	// headers := map[string]string{
+	// 	"Authorization": fmt.Sprintf("Bearer %s", c.apiKey),
+	// 	"Content-Type":  "application/json",
+	// }
 
-	respBody, err := utils.MakeRequest(ctx, c.client, "GET", url, headers, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get CRB report: %w", err)
-	}
-
+	log.Info().Str("customer_id", customerID).Msg("Simulating CRB API call")
+	// In a real implementation, you would make a call to the CRB API
+	// respBody, err := utils.MakeRequest(ctx, c.client, "GET", url, headers, nil)
+	// For now, we return mock data
+	mockResp := `{"score": 650, "status": "good"}`
 	var report CRBReport
-	if err := json.Unmarshal(respBody, &report); err != nil {
+	if err := json.Unmarshal([]byte(mockResp), &report); err != nil {
 		return nil, fmt.Errorf("failed to parse CRB report: %w", err)
 	}
 
@@ -213,36 +213,36 @@ func (c *CRBClient) GetCRBReport(ctx context.Context, customerID string) (*CRBRe
 
 // GetPayslip retrieves payslip data for an employee
 func (p *PayslipClient) GetPayslip(ctx context.Context, employer, employeeID, period string) (*Payslip, error) {
-	apiKey, exists := p.apiKeys[employer]
+	_, exists := p.apiKeys[employer]
 	if !exists {
 		return nil, fmt.Errorf("API key not configured for employer: %s", employer)
 	}
 
-	var baseURL string
+	var _ string
 	switch employer {
 	case "safaricom":
-		baseURL = "https://api.safaricom.co.ke/payroll"
+		_ = "https://api.safaricom.co.ke/payroll"
 	case "equity":
-		baseURL = "https://api.equitybank.co.ke/payroll"
+		_ = "https://api.equitybank.co.ke/payroll"
 	case "kcb":
-		baseURL = "https://api.kcbgroup.co.ke/payroll"
+		_ = "https://api.kcbgroup.co.ke/payroll"
 	default:
-		baseURL = fmt.Sprintf("https://api.%s.co.ke/payroll", employer)
+		_ = fmt.Sprintf("https://api.%s.co.ke/payroll", employer)
 	}
 
-	url := fmt.Sprintf("%s/employees/%s/payslips/%s", baseURL, employeeID, period)
-	headers := map[string]string{
-		"Authorization": fmt.Sprintf("Bearer %s", apiKey),
-		"Content-Type":  "application/json",
-	}
+	// url := fmt.Sprintf("%s/employees/%s/payslips/%s", baseURL, employeeID, period)
+	// headers := map[string]string{
+	// 	"Authorization": fmt.Sprintf("Bearer %s", apiKey),
+	// 	"Content-Type":  "application/json",
+	// }
 
-	respBody, err := utils.MakeRequest(ctx, p.client, "GET", url, headers, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get payslip: %w", err)
-	}
-
+	log.Info().Str("employer", employer).Str("employee_id", employeeID).Msg("Simulating Payslip API call")
+	// In a real implementation, you would make a call to the payslip API
+	// respBody, err := utils.MakeRequest(ctx, p.client, "GET", url, headers, nil)
+	// For now, we return mock data
+	mockResp := `{"basic_salary": 50000, "gross_salary": 60000, "net_salary": 45000}`
 	var payslip Payslip
-	if err := json.Unmarshal(respBody, &payslip); err != nil {
+	if err := json.Unmarshal([]byte(mockResp), &payslip); err != nil {
 		return nil, fmt.Errorf("failed to parse payslip: %w", err)
 	}
 

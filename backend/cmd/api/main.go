@@ -15,9 +15,12 @@ import (
 	"kelo-backend/pkg/logger"
 	"kelo-backend/pkg/liquidity"
 	"kelo-backend/pkg/merchant"
+	"kelo-backend/api/handlers"
+	"kelo-backend/pkg/bnpl"
 	"kelo-backend/pkg/order"
 	"kelo-backend/pkg/product"
 	"kelo-backend/pkg/relayer"
+	"kelo-backend/pkg/staking"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
@@ -58,6 +61,8 @@ func main() {
 	merchantService := merchant.NewService(supabaseClient)
 	orderService := order.NewService(supabaseClient)
 	liquidityService := liquidity.NewService(supabaseClient)
+	bnplService := bnpl.NewService()
+	stakingService := staking.NewService()
 
 	// Initialize handlers
 	creditScoreHandler := creditscore.NewCreditScoreHandler(creditScoreService)
@@ -66,6 +71,8 @@ func main() {
 	merchantHandler := merchant.NewHandler(merchantService)
 	orderHandler := order.NewHandler(orderService)
 	liquidityHandler := liquidity.NewHandler(liquidityService)
+	bnplHandler := handlers.NewBNPLHandler(bnplService)
+	stakingHandler := handlers.NewStakingHandler(stakingService)
 
 	// Initialize Gin router
 	if cfg.Environment == "production" {
@@ -86,6 +93,8 @@ func main() {
 		merchantHandler.RegisterRoutes(v1)
 		orderHandler.RegisterRoutes(v1)
 		liquidityHandler.RegisterRoutes(v1)
+		bnplHandler.RegisterRoutes(v1)
+		stakingHandler.RegisterRoutes(v1)
 	}
 
 	// Create HTTP server
