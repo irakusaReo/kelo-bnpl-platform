@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast'
 import { useWallet } from '@/hooks/blockchain/useWallet'
 import { useUser } from '@/contexts/UserContext'
+import { ethers } from 'ethers'
 import { 
   TrendingUp, 
   DollarSign, 
@@ -30,6 +31,16 @@ import {
   Loader2
 } from 'lucide-react'
 import type { StakingPool, UserStake } from '@/types/dashboard'
+
+const KeloLiquidityPoolABI = [
+  "function deposit(address _token, uint256 _amount) public",
+  "function withdraw(address _token, uint256 _amount) public",
+]
+
+const ERC20ABI = [
+  "function approve(address spender, uint256 amount) public returns (bool)",
+  "function allowance(address owner, address spender) public view returns (uint256)",
+]
 
 
 export function StakingInterface() {
@@ -54,7 +65,7 @@ export function StakingInterface() {
       // Fetch Staking Pools
       const { data: poolsData, error: poolsError } = await supabase
         .from('liquidity_pools')
-        .select('*');
+        .select('*, contract_address, token_address');
 
       if (poolsError) {
         console.error("Error fetching staking pools:", poolsError);
@@ -144,7 +155,7 @@ export function StakingInterface() {
   }
 
   const handleStake = async () => {
-    if (!isConnected || !user || !supabase) {
+    if (!isConnected || !user || !supabase || !wallet || !providerInstance) {
       toast({
         title: 'Wallet Not Connected',
         description: 'Please connect your wallet to stake tokens.',
@@ -174,12 +185,31 @@ export function StakingInterface() {
 
     setIsStaking(true)
     try {
-      // TODO: Replace with actual on-chain transaction
-      // 1. Get contract ABI and address
-      // 2. User `wagmi` or `ethers` to call the stake function on the smart contract
-      // 3. Wait for the transaction to be mined
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      // 1. Check network and switch if necessary
+      if (wallet.network.toLowerCase() !== selectedPool.chain) {
+        toast({ title: 'Switching Network...', description: `Please switch to the ${selectedPool.chain} network in your wallet.` })
+        await switchNetwork(selectedPool.chain)
+      }
+
+      const web3Provider = new ethers.BrowserProvider(providerInstance)
+      const signer = await web3Provider.getSigner()
+      const amountToStake = ethers.parseUnits(stakeAmount, 6) // Assuming 6 decimals for USDC/USDT
+
+      // 2. Approve the contract to spend tokens
+      const tokenContract = new ethers.Contract(selectedPool.tokenAddress, ERC20ABI, signer)
       
+      toast({ title: 'Requesting Approval', description: 'Please approve the transaction in your wallet.' })
+      const approveTx = await tokenContract.approve(selectedPool.contractAddress, amountToStake)
+      await approveTx.wait()
+
+      toast({ title: 'Approval Successful', description: 'Proceeding with the stake transaction.' })
+
+      // 3. Call the deposit function
+      const poolContract = new ethers.Contract(selectedPool.contractAddress, KeloLiquidityPoolABI, signer)
+
+      const depositTx = await poolContract.deposit(selectedPool.tokenAddress, amountToStake)
+      await depositTx.wait()
+
       // 4. On successful transaction, record it in our database
        const { data, error } = await supabase
         .from('user_investments')
@@ -213,9 +243,10 @@ export function StakingInterface() {
       setStakeAmount('')
       setSelectedPool(null)
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.'
       toast({
         title: 'Staking Failed',
-        description: 'Failed to stake tokens. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       })
     } finally {
@@ -224,7 +255,7 @@ export function StakingInterface() {
   }
 
   const handleUnstake = async (stakeId: string) => {
-    if (!isConnected || !user || !supabase) {
+    if (!isConnected || !user || !supabase || !wallet || !providerInstance) {
       toast({
         title: 'Wallet Not Connected',
         description: 'Please connect your wallet to unstake tokens.',
@@ -238,10 +269,27 @@ export function StakingInterface() {
       const stakeToUnstake = userStakes.find(s => s.id === stakeId)
       if (!stakeToUnstake) throw new Error("Stake not found")
 
-      // TODO: Replace with actual on-chain transaction for withdrawal
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      const pool = stakingPools.find(p => p.id === stakeToUnstake.poolId)
+      if (!pool) throw new Error("Associated pool not found")
+
+      // 1. Check network and switch if necessary
+      if (wallet.network.toLowerCase() !== pool.chain) {
+        toast({ title: 'Switching Network...', description: `Please switch to the ${pool.chain} network in your wallet.` })
+        await switchNetwork(pool.chain)
+      }
+
+      const web3Provider = new ethers.BrowserProvider(providerInstance)
+      const signer = await web3Provider.getSigner()
+      const amountToUnstake = ethers.parseUnits(stakeToUnstake.amount.toString(), 6) // Assuming 6 decimals
+
+      // 2. Call the withdraw function
+      const poolContract = new ethers.Contract(pool.contractAddress, KeloLiquidityPoolABI, signer)
+
+      toast({ title: 'Requesting Withdrawal', description: 'Please approve the transaction in your wallet.' })
+      const withdrawTx = await poolContract.withdraw(pool.tokenAddress, amountToUnstake)
+      await withdrawTx.wait()
       
-      // On successful transaction, update our database
+      // 3. On successful transaction, update our database
       const { error } = await supabase
         .from('user_investments')
         .update({ is_active: false })
@@ -261,9 +309,10 @@ export function StakingInterface() {
         description: `Successfully unstaked ${formatCurrency(stakeToUnstake.amount)}.`,
       })
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.'
       toast({
         title: 'Unstaking Failed',
-        description: 'Failed to unstake tokens. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       })
     } finally {
@@ -280,7 +329,7 @@ export function StakingInterface() {
     .reduce((sum, stake) => sum + stake.rewards, 0)
 
   const averageApy = userStakes.length > 0
-    ? userStakes.reduce((sum, stake) => sum + stake.estimatedApy, 0) / userStakes.length
+    ? (userStakes.reduce((sum, stake) => sum + stake.estimatedApy, 0) / userStakes.length)
     .toFixed(1)
     : 0
 
