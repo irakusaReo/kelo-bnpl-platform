@@ -4,14 +4,25 @@ import (
 	"time"
 )
 
-// MerchantStore represents a merchant's store in the Kelo marketplace.
+// IntegrationType defines the type of integration for a merchant.
+type IntegrationType string
+
+const (
+	// Integrated means the merchant's products are sold directly on Kelo.
+	Integrated IntegrationType = "INTEGRATED"
+	// Partner means the merchant is listed as a payment option and has an external site.
+	Partner IntegrationType = "PARTNER"
+)
+
+// MerchantStore represents a merchant's store in the Kelo marketplace, aligning with the Prisma schema.
 type MerchantStore struct {
-	ID          string    `json:"id"`
-	MerchantID  string    `json:"merchant_id"`
-	StoreName   string    `json:"store_name"`
-	StoreURL    string    `json:"store_url,omitempty"`
-	StoreAddress string   `json:"store_address,omitempty"`
-	LogoURL     string    `json:"logo_url,omitempty"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID              string          `json:"id"`
+	Name            string          `json:"name"`
+	Description     *string         `json:"description"`
+	OwnerID         string          `json:"ownerId"`
+	IntegrationType IntegrationType `json:"integrationType"`
+	ExternalURL     *string         `json:"externalUrl"`
+	Category        *string         `json:"category"`
+	CreatedAt       time.Time       `json:"createdAt"`
+	UpdatedAt       time.Time       `json:"updatedAt"`
 }

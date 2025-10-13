@@ -62,7 +62,8 @@ func (h *Handler) GetStore(c *gin.Context) {
 
 // GetStores retrieves all merchant stores.
 func (h *Handler) GetStores(c *gin.Context) {
-	stores, err := h.service.GetStores()
+	category := c.Query("category")
+	stores, err := h.service.GetStores(category)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

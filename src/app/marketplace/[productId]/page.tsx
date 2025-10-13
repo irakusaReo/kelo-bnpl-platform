@@ -11,23 +11,22 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, ShoppingCart, User } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-
-interface Product {
-  id: string;
-  name: string;
-  merchant: {
-    name: string;
-  };
-  price: number;
-  description: string;
-  images: { url: string }[];
-}
+import { Product } from "@/types";
+import { useCartStore } from "@/store/cart-store";
+import { toast } from "sonner";
 
 export default function ProductDetailPage({ params }: { params: { productId: string } }) {
   const [product, setProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPaymentOption, setSelectedPaymentOption] = useState("split_pay");
+  const { addItem } = useCartStore();
+
+  const handleAddToCart = () => {
+    if (product) {
+      addItem(product);
+      toast.success(`${product.name} has been added to your cart.`);
+    }
+  };
 
   useEffect(() => {
     if (params.productId) {
@@ -151,34 +150,11 @@ export default function ProductDetailPage({ params }: { params: { productId: str
             <h2 className="text-xl font-semibold mb-2">Product info</h2>
             <p className="text-gray-600 dark:text-gray-300 mb-6">{product.description}</p>
 
-            <Card className="bg-gray-50 dark:bg-gray-900">
-              <CardContent className="p-6">
-                <RadioGroup value={selectedPaymentOption} onValueChange={setSelectedPaymentOption}>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="pay_in_full" className="flex flex-col flex-grow cursor-pointer">
-                      <span className="font-semibold">Pay in full</span>
-                      <span className="text-sm text-gray-500">Pay the total amount of ${product.price} now</span>
-                    </Label>
-                    <RadioGroupItem value="pay_in_full" id="pay_in_full" />
-                  </div>
-                  <Separator className="my-4" />
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="split_pay" className="flex flex-col flex-grow cursor-pointer">
-                      <span className="font-semibold">4 interest-free payments</span>
-                      <span className="text-sm text-gray-500">Split your purchase into 4 payments of ${installmentAmount}</span>
-                    </Label>
-                    <RadioGroupItem value="split_pay" id="split_pay" />
-                  </div>
-                </RadioGroup>
-              </CardContent>
-            </Card>
 
             <div className="mt-auto pt-8">
-              <Link href={`/checkout?productId=${product.id}`} passHref>
-                <Button size="lg" className="w-full text-lg">
-                  Buy now, Pay later <span className="font-bold ml-4">${product.price}</span>
-                </Button>
-              </Link>
+              <Button size="lg" className="w-full text-lg" onClick={handleAddToCart}>
+                Add to Cart <span className="font-bold ml-4">${product.price}</span>
+              </Button>
             </div>
           </div>
         </div>
