@@ -1,15 +1,10 @@
 [package]
-name = "kelo-liquidity-pool"
-version = "0.1.0"
-authors = ["Kelo Team"]
+name = "KeloLiquidityPool"
+version = "1.0.0"
+author = ["Kelo Finance"]
 
 [addresses]
-kelo = "0x1234567890abcdef1234567890abcdef12345678"
+KeloLiquidityPool = "0x..."
 
-[dev-addresses]
-kelo = "0x1234567890abcdef1234567890abcdef12345678"
-
-[dependencies.AptosFramework]
-git = "https://github.com/aptos-labs/aptos-core.git"
-rev = "mainnet"
-subdir = "aptos-move/framework/aptos-framework"
+[dependencies]
+AptosFramework = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-framework", rev = "main" }
