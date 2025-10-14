@@ -38,14 +38,33 @@ func (h *Handler) RegisterRoutes(router gin.IRouter) {
 
 // CreateProduct handles the creation of a new product.
 func (h *Handler) CreateProduct(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	merchantID, ok := userID.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID format"})
+		return
+	}
+
 	var product models.Product
 	if err := c.ShouldBindJSON(&product); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// In a real application, you would get the merchant ID from the authenticated user
-	// and ensure they own the store. For now, we'll assume the client provides it.
+	isOwner, err := h.service.IsStoreOwner(product.StoreID, merchantID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if !isOwner {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User does not own this store"})
+		return
+	}
 
 	if err := h.service.CreateProduct(&product); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -93,6 +112,18 @@ func (h *Handler) GetProductsByStore(c *gin.Context) {
 
 // UpdateProduct updates an existing product.
 func (h *Handler) UpdateProduct(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	merchantID, ok := userID.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID format"})
+		return
+	}
+
 	productID := c.Param("id")
 	var product models.Product
 	if err := c.ShouldBindJSON(&product); err != nil {
@@ -101,7 +132,15 @@ func (h *Handler) UpdateProduct(c *gin.Context) {
 	}
 	product.ID = productID
 
-	// Again, ensure the authenticated merchant owns this product.
+	isOwner, err := h.service.IsProductOwner(productID, merchantID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if !isOwner {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User does not own this product"})
+		return
+	}
 
 	if err := h.service.UpdateProduct(&product); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -113,9 +152,29 @@ func (h *Handler) UpdateProduct(c *gin.Context) {
 
 // DeleteProduct deletes a product.
 func (h *Handler) DeleteProduct(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	merchantID, ok := userID.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID format"})
+		return
+	}
+
 	productID := c.Param("id")
 
-	// Ensure the authenticated merchant owns this product.
+	isOwner, err := h.service.IsProductOwner(productID, merchantID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if !isOwner {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User does not own this product"})
+		return
+	}
 
 	if err := h.service.DeleteProduct(productID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -127,7 +186,30 @@ func (h *Handler) DeleteProduct(c *gin.Context) {
 
 // UpdateProductStock handles updating the stock of a product.
 func (h *Handler) UpdateProductStock(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	merchantID, ok := userID.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID format"})
+		return
+	}
+
 	productID := c.Param("id")
+
+	isOwner, err := h.service.IsProductOwner(productID, merchantID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if !isOwner {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User does not own this product"})
+		return
+	}
+
 	var payload struct {
 		Stock int `json:"stock"`
 	}

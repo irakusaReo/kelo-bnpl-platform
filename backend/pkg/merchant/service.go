@@ -199,10 +199,30 @@ func (s *Service) GetPayoutHistory(merchantID string) ([]models.Payout, error) {
 
 // RequestPayout creates a new payout request for a merchant.
 func (s *Service) RequestPayout(payout *models.Payout) error {
-	// In a real application, you would perform balance checks and other validation here.
-	// For now, we'll just create the payout record with a "pending" status.
+	analytics, err := s.GetSalesAnalytics(payout.MerchantID, "", "")
+	if err != nil {
+		return fmt.Errorf("failed to get sales analytics: %w", err)
+	}
+
+	payouts, err := s.GetPayoutHistory(payout.MerchantID)
+	if err != nil {
+		return fmt.Errorf("failed to get payout history: %w", err)
+	}
+
+	var totalPayout float64
+	for _, p := range payouts {
+		if p.Status == "completed" {
+			totalPayout += p.Amount
+		}
+	}
+
+	balance := analytics.TotalRevenue - totalPayout
+	if balance < payout.Amount {
+		return fmt.Errorf("insufficient funds")
+	}
+
 	payout.Status = "pending"
-	_, _, err := s.db.From("payouts").Insert(payout, false, "", "", "").Execute()
+	_, _, err = s.db.From("payouts").Insert(payout, false, "", "", "").Execute()
 	if err != nil {
 		return fmt.Errorf("failed to create payout request: %w", err)
 	}

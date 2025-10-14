@@ -27,6 +27,28 @@ func (s *Service) CreateProduct(product *models.Product) error {
 	return nil
 }
 
+// IsStoreOwner checks if a merchant owns a store.
+func (s *Service) IsStoreOwner(storeID string, merchantID string) (bool, error) {
+	var stores []models.MerchantStore
+	data, _, err := s.db.From("merchant_stores").Select("*", "exact", false).Eq("id", storeID).Eq("merchant_id", merchantID).Execute()
+	if err != nil {
+		return false, fmt.Errorf("failed to get store: %w", err)
+	}
+	if err := json.Unmarshal(data, &stores); err != nil {
+		return false, fmt.Errorf("failed to unmarshal store: %w", err)
+	}
+	return len(stores) > 0, nil
+}
+
+// IsProductOwner checks if a merchant owns a product.
+func (s *Service) IsProductOwner(productID string, merchantID string) (bool, error) {
+	product, err := s.GetProduct(productID)
+	if err != nil {
+		return false, err
+	}
+	return s.IsStoreOwner(product.StoreID, merchantID)
+}
+
 // UpdateProduct updates an existing product.
 func (s *Service) UpdateProduct(product *models.Product) error {
 	_, _, err := s.db.From("products").Update(product, "", "").Eq("id", product.ID).Execute()
