@@ -41,3 +41,26 @@ export const updateProduct = (
 export const deleteProduct = (productId: string): Promise<void> => {
   return api.delete(`/api/products/${productId}`);
 };
+
+export const updateProductStock = (
+  productId: string,
+  stock: number
+): Promise<Product> => {
+  return api.patch(`/api/products/${productId}/stock`, { stock });
+};
+
+// == Payout API ==
+
+export const getPayoutHistory = (): Promise<Payout[]> => {
+  return fetcher(`/api/merchant/payouts`);
+};
+
+export const requestPayout = (amount: number): Promise<Payout> => {
+  return poster("/api/merchant/payouts", { amount });
+};
+
+// == Order API ==
+
+export const getRecentOrders = (): Promise<Order[]> => {
+  return fetcher(`/api/merchant/orders/recent`);
+};
