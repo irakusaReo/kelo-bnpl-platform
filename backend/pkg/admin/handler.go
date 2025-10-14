@@ -49,7 +49,9 @@ func (h *Handler) GetUsers(c *gin.Context) {
 		pageSize = 10
 	}
 
-	users, err := h.service.GetUsers(c.Request.Context(), page, pageSize)
+	search := c.Query("search")
+
+	users, err := h.service.GetUsers(c.Request.Context(), page, pageSize, search)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users"})
 		return
@@ -124,8 +126,9 @@ func (h *Handler) GetMerchants(c *gin.Context) {
 	}
 
 	status := c.Query("status")
+	search := c.Query("search")
 
-	merchants, err := h.service.GetMerchants(c.Request.Context(), page, pageSize, status)
+	merchants, err := h.service.GetMerchants(c.Request.Context(), page, pageSize, status, search)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch merchants"})
 		return

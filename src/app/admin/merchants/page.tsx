@@ -1,8 +1,13 @@
-export default function MerchantsPage() {
+import { MerchantManagement } from './components'
+
+export default function AdminMerchantsPage() {
   return (
-    <div className="merchants-management">
-      <h1>Merchant Management</h1>
-      <p>Manage platform merchants</p>
+    <div className="space-y-4">
+      <h1 className="text-3xl font-bold tracking-tight">Merchant Management</h1>
+      <p className="text-muted-foreground">
+        View and manage all platform merchants.
+      </p>
+      <MerchantManagement />
     </div>
   )
 }
