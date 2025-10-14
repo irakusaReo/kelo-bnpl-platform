@@ -20,6 +20,7 @@ type MerchantStore struct {
 	Name            string          `json:"name"`
 	Description     *string         `json:"description"`
 	OwnerID         string          `json:"ownerId"`
+	Status          string          `json:"status"`
 	IntegrationType IntegrationType `json:"integrationType"`
 	ExternalURL     *string         `json:"externalUrl"`
 	Category        *string         `json:"category"`
