@@ -18,12 +18,17 @@ func NewService(db *supabase.Client) *Service {
 }
 
 // GetUsers retrieves a paginated list of users.
-func (s *Service) GetUsers(ctx context.Context, page, pageSize int) ([]models.Profile, error) {
+func (s *Service) GetUsers(ctx context.Context, page, pageSize int, search string) ([]models.Profile, error) {
 	from := (page - 1) * pageSize
 	to := from + pageSize - 1
 	var users []models.Profile
 
-	jsonString, _, err := s.db.From("profiles").Select("*", "exact", false).Range(from, to, "").Execute()
+	query := s.db.From("profiles").Select("*", "exact", false).Range(from, to, "")
+	if search != "" {
+		query = query.Or(fmt.Sprintf("first_name.ilike.%s,last_name.ilike.%s,email.ilike.%s", search, search, search))
+	}
+
+	jsonString, _, err := query.Execute()
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +75,7 @@ func (s *Service) ChangeUserRole(ctx context.Context, userID string, role string
 }
 
 // GetMerchants retrieves a paginated list of merchants, with optional status filtering.
-func (s *Service) GetMerchants(ctx context.Context, page, pageSize int, status string) ([]models.MerchantStore, error) {
+func (s *Service) GetMerchants(ctx context.Context, page, pageSize int, status, search string) ([]models.MerchantStore, error) {
 	from := (page - 1) * pageSize
 	to := from + pageSize - 1
 	var merchants []models.MerchantStore
@@ -78,6 +83,9 @@ func (s *Service) GetMerchants(ctx context.Context, page, pageSize int, status s
 	query := s.db.From("merchant_stores").Select("*", "exact", false).Range(from, to, "")
 	if status != "" {
 		query = query.Eq("status", status)
+	}
+	if search != "" {
+		query = query.Ilike("name", "%"+search+"%")
 	}
 
 	jsonString, _, err := query.Execute()

@@ -7,6 +7,7 @@ export interface MerchantStore {
   name: string;
   description?: string;
   ownerId: string;
+  status: string;
   integrationType: IntegrationType;
   externalUrl?: string;
   category?: string;

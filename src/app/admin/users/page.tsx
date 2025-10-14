@@ -1,8 +1,13 @@
-export default function UsersPage() {
+import { UserManagement } from './components'
+
+export default function AdminUsersPage() {
   return (
-    <div className="users-management">
-      <h1>User Management</h1>
-      <p>Manage platform users</p>
+    <div className="space-y-4">
+      <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
+      <p className="text-muted-foreground">
+        View and manage all platform users.
+      </p>
+      <UserManagement />
     </div>
   )
 }
