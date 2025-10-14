@@ -140,14 +140,24 @@ func (h *Handler) GetRecentOrders(c *gin.Context) {
 
 // CreateStore handles the creation of a new merchant store.
 func (h *Handler) CreateStore(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	merchantID, ok := userID.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID format"})
+		return
+	}
+
 	var store models.MerchantStore
 	if err := c.ShouldBindJSON(&store); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
-	// In a real application, the merchant ID would be extracted from the JWT token.
-	// For now, we'll assume the client provides it.
+	store.OwnerID = merchantID
 
 	if err := h.service.CreateStore(&store); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
