@@ -124,3 +124,18 @@ export interface Product {
 
 export type ProductPayload = Omit<Product, "id" | "store_id" | "created_at" | "updated_at">;
 export type StorePayload = Omit<MerchantStore, "id" | "merchant_id" | "created_at" | "updated_at">;
+
+export interface Payout {
+  id: string;
+  amount: number;
+  status: string;
+  created_at: string;
+}
+
+export interface Order {
+  id: string;
+  total_amount: number;
+  status: string;
+  created_at: string;
+  user_id: string;
+}

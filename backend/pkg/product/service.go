@@ -27,6 +27,34 @@ func (s *Service) CreateProduct(product *models.Product) error {
 	return nil
 }
 
+// UpdateProduct updates an existing product.
+func (s *Service) UpdateProduct(product *models.Product) error {
+	_, _, err := s.db.From("products").Update(product, "", "").Eq("id", product.ID).Execute()
+	if err != nil {
+		return fmt.Errorf("failed to update product: %w", err)
+	}
+	return nil
+}
+
+// UpdateProductStock updates the stock of a product.
+func (s *Service) UpdateProductStock(productID string, stock int) (*models.Product, error) {
+	var results []models.Product
+	data, _, err := s.db.From("products").Update(map[string]interface{}{"stock": stock}, "", "exact").Eq("id", productID).Execute()
+	if err != nil {
+		return nil, fmt.Errorf("failed to update product stock: %w", err)
+	}
+
+	if err := json.Unmarshal(data, &results); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal updated product: %w", err)
+	}
+
+	if len(results) == 0 {
+		return nil, fmt.Errorf("product not found after update")
+	}
+
+	return &results[0], nil
+}
+
 // GetProduct retrieves a single product by its ID.
 func (s *Service) GetProduct(productID string) (*models.Product, error) {
 	var products []models.Product
@@ -103,15 +131,6 @@ func (s *Service) GetProductsByStore(storeID string) ([]models.Product, error) {
 	}
 
 	return products, nil
-}
-
-// UpdateProduct updates an existing product.
-func (s *Service) UpdateProduct(product *models.Product) error {
-	_, _, err := s.db.From("products").Update(product, "", "").Eq("id", product.ID).Execute()
-	if err != nil {
-		return fmt.Errorf("failed to update product: %w", err)
-	}
-	return nil
 }
 
 // DeleteProduct deletes a product by its ID.

@@ -27,6 +27,7 @@ func (h *Handler) RegisterRoutes(router gin.IRouter) {
 		productRoutes.POST("/", middleware.AuthMiddleware("merchant"), h.CreateProduct)
 		productRoutes.PUT("/:id", middleware.AuthMiddleware("merchant"), h.UpdateProduct)
 		productRoutes.DELETE("/:id", middleware.AuthMiddleware("merchant"), h.DeleteProduct)
+		productRoutes.PATCH("/:id/stock", middleware.AuthMiddleware("merchant"), h.UpdateProductStock)
 	}
 
 	storeRoutes := router.Group("/stores")
@@ -122,4 +123,24 @@ func (h *Handler) DeleteProduct(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Product deleted successfully"})
+}
+
+// UpdateProductStock handles updating the stock of a product.
+func (h *Handler) UpdateProductStock(c *gin.Context) {
+	productID := c.Param("id")
+	var payload struct {
+		Stock int `json:"stock"`
+	}
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	product, err := h.service.UpdateProductStock(productID, payload.Stock)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, product)
 }

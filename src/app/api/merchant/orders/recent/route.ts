@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(getAuthOptions());
     const token = session?.accessToken;
 
-    const backendUrl = `http://localhost:8080/api/v1/stores`;
+    const backendUrl = `http://localhost:8080/api/v1/merchant/orders/recent`;
 
     const authHeader = `Bearer ${token}`;
 
