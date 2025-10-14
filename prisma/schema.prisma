@@ -21,6 +21,7 @@ model User {
   hederaDID           String?   @unique @map("hedera_did")
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
+  status              UserStatus @default(ACTIVE)
 
   accounts       Account[]
   sessions       Session[]
@@ -69,6 +70,17 @@ model VerificationToken {
   @@map("verification_tokens")
 }
 
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum MerchantStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+}
+
 enum IntegrationType {
   INTEGRATED
   PARTNER
@@ -84,6 +96,7 @@ model MerchantStore {
   category        String?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
+  status          MerchantStatus  @default(PENDING)
 
   owner    User      @relation(fields: [ownerId], references: [id])
   products Product[]

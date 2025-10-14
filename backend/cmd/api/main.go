@@ -16,6 +16,7 @@ import (
 	"kelo-backend/pkg/liquidity"
 	"kelo-backend/pkg/merchant"
 	"kelo-backend/api/handlers"
+	"kelo-backend/pkg/admin"
 	"kelo-backend/pkg/bnpl"
 	"kelo-backend/pkg/order"
 	"kelo-backend/pkg/product"
@@ -63,6 +64,7 @@ func main() {
 	liquidityService := liquidity.NewService(supabaseClient)
 	bnplService := bnpl.NewService()
 	stakingService := staking.NewService()
+	adminService := admin.NewService(supabaseClient)
 
 	// Initialize handlers
 	creditScoreHandler := creditscore.NewCreditScoreHandler(creditScoreService)
@@ -73,6 +75,7 @@ func main() {
 	liquidityHandler := liquidity.NewHandler(liquidityService)
 	bnplHandler := handlers.NewBNPLHandler(bnplService)
 	stakingHandler := handlers.NewStakingHandler(stakingService)
+	adminHandler := admin.NewHandler(adminService)
 
 	// Initialize Gin router
 	if cfg.Environment == "production" {
@@ -95,6 +98,7 @@ func main() {
 		liquidityHandler.RegisterRoutes(v1)
 		bnplHandler.RegisterRoutes(v1)
 		stakingHandler.RegisterRoutes(v1)
+		adminHandler.RegisterRoutes(v1)
 	}
 
 	// Create HTTP server

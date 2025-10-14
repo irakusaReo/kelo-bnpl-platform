@@ -9,6 +9,7 @@ import (
 type Profile struct {
 	ID            string    `json:"id"`
 	Role          string    `json:"role,omitempty"`
+	Status        string    `json:"status,omitempty"`
 	WalletAddress string    `json:"wallet_address,omitempty"`
 	CreatedAt     time.Time `json:"created_at,omitempty"`
 	UpdatedAt     time.Time `json:"updated_at,omitempty"`
@@ -65,4 +66,12 @@ type CreditScore struct {
 	DataSource    string    `json:"data_source"`
 	ValidUntil    time.Time `json:"valid_until"`
 	CreatedAt     time.Time `json:"created_at,omitempty"`
+}
+
+// PlatformAnalytics holds key platform-wide metrics.
+type PlatformAnalytics struct {
+	TotalTransactionVolume float64 `json:"total_transaction_volume"`
+	TotalValueLocked       float64 `json:"total_value_locked"`
+	NewUsersLast30Days     int     `json:"new_users_last_30_days"`
+	NewMerchantsLast30Days int     `json:"new_merchants_last_30_days"`
 }
