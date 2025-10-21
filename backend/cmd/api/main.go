@@ -63,6 +63,7 @@ func main() {
 	orderService := order.NewService(supabaseClient)
 	liquidityService := liquidity.NewService(supabaseClient)
 	bnplService := bnpl.NewService()
+	repaymentService := bnpl.NewRepaymentService(supabaseClient, blockchainClients)
 	stakingService := staking.NewService()
 	adminService := admin.NewService(supabaseClient)
 
@@ -74,6 +75,7 @@ func main() {
 	orderHandler := order.NewHandler(orderService)
 	liquidityHandler := liquidity.NewHandler(liquidityService)
 	bnplHandler := handlers.NewBNPLHandler(bnplService)
+	repaymentHandler := handlers.NewRepaymentHandler(repaymentService)
 	stakingHandler := handlers.NewStakingHandler(stakingService)
 	adminHandler := admin.NewHandler(adminService)
 
@@ -99,6 +101,13 @@ func main() {
 		bnplHandler.RegisterRoutes(v1)
 		stakingHandler.RegisterRoutes(v1)
 		adminHandler.RegisterRoutes(v1)
+
+		// Repayment route
+		repaymentRoutes := v1.Group("/repayment")
+		// Add auth middleware here when it's available
+		{
+			repaymentRoutes.POST("", repaymentHandler.HandleRepayment)
+		}
 	}
 
 	// Create HTTP server

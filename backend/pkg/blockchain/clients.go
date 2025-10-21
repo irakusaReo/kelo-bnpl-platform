@@ -121,7 +121,7 @@ func NewClients(cfg *config.Config) (*Clients, error) {
         }
 
         // Initialize Hedera client
-        clients.hederaClient = NewHederaClient(cfg.HederaNetwork)
+        clients.hederaClient = NewHederaClient(cfg)
         log.Info().Msgf("Connected to Hedera %s network", cfg.HederaNetwork)
 
         return clients, nil
@@ -313,31 +313,6 @@ func (c *AptosClient) SendTransaction(ctx context.Context, tx []byte) (string, e
         return "", fmt.Errorf("not implemented")
 }
 
-// HederaClient represents a Hedera blockchain client
-type HederaClient struct {
-        network string
-}
-
-// NewHederaClient creates a new Hedera client
-func NewHederaClient(network string) *HederaClient {
-        return &HederaClient{
-                network: network,
-        }
-}
-
-// GetBalance returns the balance of a Hedera account
-func (c *HederaClient) GetBalance(ctx context.Context, account string) (uint64, error) {
-        // This is a placeholder implementation
-        // In a real implementation, you would use the Hedera SDK
-        return 0, fmt.Errorf("not implemented")
-}
-
-// SendTransaction sends a transaction on Hedera
-func (c *HederaClient) SendTransaction(ctx context.Context, tx interface{}) (string, error) {
-        // This is a placeholder implementation
-        // In a real implementation, you would send the transaction to Hedera
-        return "", fmt.Errorf("not implemented")
-}
 
 // GetTokenInfo returns information about a token on any supported chain
 func (c *Clients) GetTokenInfo(ctx context.Context, chainID string, tokenAddress string) (map[string]interface{}, error) {

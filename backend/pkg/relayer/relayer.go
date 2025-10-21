@@ -173,7 +173,7 @@ func NewTrustedRelayer(cfg *config.Config, bc *blockchain.Clients) (*TrustedRela
 	
 	// Initialize LayerZero client
 	// We'll use the Ethereum client as a placeholder for the EVM client
-	layerZeroClient, err := NewLayerZeroClient(bc.GetEthereumClient(), privateKey)
+	layerZeroClient, err := NewLayerZeroClient(bc.GetEthereumClient(), privateKey, cfg)
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("failed to initialize LayerZero client: %w", err)
