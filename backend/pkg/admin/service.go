@@ -25,7 +25,9 @@ func (s *Service) GetUsers(ctx context.Context, page, pageSize int, search strin
 
 	query := s.db.From("profiles").Select("*", "exact", false).Range(from, to, "")
 	if search != "" {
-		query = query.Or(fmt.Sprintf("first_name.ilike.%s,last_name.ilike.%s,email.ilike.%s", search, search, search))
+		// The second argument to Or specifies the `and` group.
+		// We can leave it empty for a simple multi-column search.
+		query = query.Or(fmt.Sprintf("first_name.ilike.%s,last_name.ilike.%s,email.ilike.%s", search, search, search), "")
 	}
 
 	jsonString, _, err := query.Execute()

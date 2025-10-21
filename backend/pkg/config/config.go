@@ -19,6 +19,7 @@ type Config struct {
         SupabaseJWTSecret      string
         HederaNetwork          string
         HederaContractAddress  string
+        HederaLoanUpdateTopicID string
         LayerZeroEndpoint      string
         LayerZeroAPIKey        string
         EthereumRPC            string
@@ -75,6 +76,7 @@ func Load() (*Config, error) {
                 SupabaseJWTSecret:      getEnv("SUPABASE_JWT_SECRET", ""),
                 HederaNetwork:          getEnv("HEDERA_NETWORK", "testnet"),
                 HederaContractAddress:  getEnv("HEDERA_CONTRACT_ADDRESS", ""),
+                HederaLoanUpdateTopicID: getEnv("HEDERA_LOAN_UPDATE_TOPIC_ID", ""),
                 LayerZeroEndpoint:      getEnv("LAYERZERO_ENDPOINT", ""),
                 LayerZeroAPIKey:        getEnv("LAYERZERO_API_KEY", ""),
                 EthereumRPC:            getEnv("ETHEREUM_RPC", ""),
