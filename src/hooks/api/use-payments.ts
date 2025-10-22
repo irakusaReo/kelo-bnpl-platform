@@ -1,37 +1,108 @@
-"use client";
+'use client'
 
-import { useQuery } from "@tanstack/react-query";
-import { useUser } from "@/contexts/UserContext";
-import { Payment } from "@/types";
+import { useState, useCallback } from 'react'
+import { useToast } from '@/hooks/use-toast'
 
-// NOTE: This is a placeholder hook. The actual implementation will depend on the API.
-// I've created a placeholder payment structure in `src/types/index.ts`.
+interface PaymentFilters {
+  status?: 'pending' | 'completed' | 'failed'
+  method?: 'mpesa' | 'bank-transfer' | 'crypto' | 'wallet'
+  dateFrom?: string
+  dateTo?: string
+}
 
-export const usePayments = (userId?: string) => {
-  const { supabase } = useUser();
+interface PaymentData {
+  id: string
+  amount: number
+  method: string
+  status: string
+  loanId: string
+  createdAt: string
+  transactionId?: string
+}
 
-  const fetchPayments = async () => {
-    if (!userId || !supabase) {
-      throw new Error("User not authenticated.");
+export function usePayments() {
+  const [isLoading, setIsLoading] = useState(false)
+  const [payments, setPayments] = useState<PaymentData[]>([])
+  const { toast } = useToast()
+
+  const fetchPayments = useCallback(async (filters?: PaymentFilters) => {
+    setIsLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value) params.append(key, value)
+        })
+      }
+
+      const response = await fetch(`/api/payments?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        setPayments(result.data)
+        return result.data
+      } else {
+        toast({
+          title: 'Failed to fetch payments',
+          description: result.message || 'Please try again later.',
+          variant: 'destructive',
+        })
+        return []
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
+      })
+      return []
+    } finally {
+      setIsLoading(false)
     }
+  }, [toast])
 
-    // This is a placeholder. Replace with your actual API call.
-    // For now, I will return some mock data.
-    const mockData: Payment[] = [
-        { id: "PAY-001", loanId: "LOAN-001", amount: 2500, status: "completed", dueDate: new Date("2024-10-15"), paidAt: new Date("2024-10-14")},
-        { id: "PAY-002", loanId: "LOAN-001", amount: 2500, status: "pending", dueDate: new Date("2024-11-15")},
-        { id: "PAY-003", loanId: "LOAN-002", amount: 4500, status: "completed", dueDate: new Date("2024-10-20"), paidAt: new Date("2024-10-20")},
-        { id: "PAY-004", loanId: "LOAN-002", amount: 4500, status: "pending", dueDate: new Date("2024-11-20")},
-        { id: "PAY-005", loanId: "LOAN-004", amount: 12000, status: "overdue", dueDate: new Date("2024-11-05")},
-    ]
+  const getWalletBalance = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const response = await fetch('/api/payments/wallet', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+      })
 
-    return mockData;
-  };
+      const result = await response.json()
 
-  return useQuery({
-    queryKey: ["payments", userId],
-    queryFn: fetchPayments,
-    enabled: !!userId && !!supabase,
-    retry: 1,
-  });
-};
+      if (result.success) {
+        return result.data.balance
+      } else {
+        toast({
+          title: 'Failed to fetch wallet balance',
+          description: result.message || 'Please try again later.',
+          variant: 'destructive',
+        })
+        return 0
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
+      })
+      return 0
+    } finally {
+      setIsLoading(false)
+    }
+  }, [toast])
+
+  return {
+    payments,
+    isLoading,
+    fetchPayments,
+    getWalletBalance,
+  }
+}

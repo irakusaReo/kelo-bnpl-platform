@@ -1,41 +1,144 @@
-"use client";
+'use client'
 
-import { useQuery } from "@tanstack/react-query";
-import { useUser } from "@/contexts/UserContext";
-import { Loan } from "@/types";
+import { useState, useCallback } from 'react'
+import { useToast } from '@/hooks/use-toast'
 
-export const useLoans = (userId?: string) => {
-  const { supabase } = useUser();
+interface LoanFilters {
+  status?: 'pending' | 'approved' | 'rejected' | 'active' | 'completed' | 'defaulted'
+  type?: 'customer' | 'merchant'
+  dateFrom?: string
+  dateTo?: string
+}
 
-  const fetchLoans = async () => {
-    if (!userId || !supabase) {
-      throw new Error("User not authenticated.");
+interface LoanData {
+  id: string
+  amount: number
+  purpose: string
+  duration: number
+  status: string
+  createdAt: string
+  updatedAt: string
+  userId: string
+  userType: 'customer' | 'merchant'
+}
+
+export function useLoans() {
+  const [isLoading, setIsLoading] = useState(false)
+  const [loans, setLoans] = useState<LoanData[]>([])
+  const { toast } = useToast()
+
+  const fetchLoans = useCallback(async (filters?: LoanFilters) => {
+    setIsLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value) params.append(key, value)
+        })
+      }
+
+      const response = await fetch(`/api/loans/applications?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        setLoans(result.data)
+        return result.data
+      } else {
+        toast({
+          title: 'Failed to fetch loans',
+          description: result.message || 'Please try again later.',
+          variant: 'destructive',
+        })
+        return []
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
+      })
+      return []
+    } finally {
+      setIsLoading(false)
     }
+  }, [toast])
 
-    const { data, error } = await supabase
-      .from("loans")
-      .select(`
-        id,
-        amount,
-        status,
-        created_at,
-        merchant_stores ( name ),
-        repayments ( id, due_date, amount, status )
-      `)
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
+  const fetchActiveLoans = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const response = await fetch('/api/loans/active', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+      })
 
-    if (error) {
-      throw new Error(error.message);
+      const result = await response.json()
+
+      if (result.success) {
+        return result.data
+      } else {
+        toast({
+          title: 'Failed to fetch active loans',
+          description: result.message || 'Please try again later.',
+          variant: 'destructive',
+        })
+        return []
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
+      })
+      return []
+    } finally {
+      setIsLoading(false)
     }
+  }, [toast])
 
-    return data as Loan[];
-  };
+  const fetchLoanHistory = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const response = await fetch('/api/loans/history', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+      })
 
-  return useQuery({
-    queryKey: ["loans", userId],
-    queryFn: fetchLoans,
-    enabled: !!userId && !!supabase,
-    retry: 1,
-  });
-};
+      const result = await response.json()
+
+      if (result.success) {
+        return result.data
+      } else {
+        toast({
+          title: 'Failed to fetch loan history',
+          description: result.message || 'Please try again later.',
+          variant: 'destructive',
+        })
+        return []
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
+      })
+      return []
+    } finally {
+      setIsLoading(false)
+    }
+  }, [toast])
+
+  return {
+    loans,
+    isLoading,
+    fetchLoans,
+    fetchActiveLoans,
+    fetchLoanHistory,
+  }
+}
