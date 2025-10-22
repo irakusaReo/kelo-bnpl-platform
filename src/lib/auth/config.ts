@@ -1,6 +1,7 @@
 import { NextAuthOptions } from "next-auth";
 import { SupabaseAdapter } from "@auth/supabase-adapter";
 import GoogleProvider from "next-auth/providers/google";
+import CoinbaseProvider from "next-auth/providers/coinbase";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { createClient } from "@supabase/supabase-js";
 import { AuthOptions } from "next-auth";
@@ -9,51 +10,21 @@ import { SiweMessage } from "siwe";
 export const getAuthOptions = (): AuthOptions => {
   return {
     providers: [
-      GoogleProvider({
-        clientId: process.env.GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      }),
-      CredentialsProvider({
-        id: "siwe",
-        name: "Ethereum",
-        credentials: {
-          message: { label: "Message", type: "text" },
-          signature: { label: "Signature", type: "text" },
-        },
-        async authorize(credentials) {
-          try {
-            const siwe = new SiweMessage(JSON.parse(credentials?.message || "{}"));
-
-            const result = await siwe.verify({
-              signature: credentials?.signature || "",
-              nonce: await getCsrfToken({ req: { headers: req.headers } }),
-            });
-
-            if (result.success) {
-              const { address } = siwe;
-
-              const user = await prisma.user.findUnique({
-                where: { walletAddress: address },
-              });
-
-              if (user) {
-                return user;
-              }
-
-              const newUser = await prisma.user.create({
-                data: {
-                  walletAddress: address,
+        GoogleProvider({
+            clientId: process.env.GOOGLE_CLIENT_ID!,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+            authorization: {
+                params: {
+                    prompt: "consent",
+                    access_type: "offline",
+                    response_type: "code",
                 },
-              });
-
-              return newUser;
-            }
-            return null;
-          } catch (e) {
-            return null;
-          }
-        },
-      }),
+            },
+        }),
+        CoinbaseProvider({
+            clientId: process.env.COINBASE_CLIENT_ID!,
+            clientSecret: process.env.COINBASE_CLIENT_SECRET!,
+        }),
       CredentialsProvider({
         name: "Credentials",
         credentials: {
@@ -161,22 +132,32 @@ export const getAuthOptions = (): AuthOptions => {
     async session({ session, token }) {
       if (token) {
         session.user.id = token.id as string;
+        session.user.role = token.role as string;
       }
       return session;
     },
     async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-      }
-      return token;
+        if (user) {
+            token.id = user.id;
+            // Fetch user role from the database
+            const supabaseAdmin = createClient(
+                process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                process.env.SUPABASE_SERVICE_ROLE_KEY!
+            );
+            const { data, error } = await supabaseAdmin
+                .from("users")
+                .select("role")
+                .eq("id", user.id)
+                .single();
+
+            if (!error && data) {
+                token.role = data.role;
+            }
+        }
+        return token;
     },
-    async redirect({ url, baseUrl }) {
-      // After a sign-in, redirect to the dashboard.
-      // This handles both credentials and OAuth providers.
-      if (url.startsWith("/")) return `${baseUrl}${url}`
-      // Allows callback URLs on the same origin
-      else if (new URL(url).origin === baseUrl) return url
-      return baseUrl + '/dashboard'
+    async redirect({ baseUrl }) {
+      return `${baseUrl}/marketplace`;
     }
   },
   pages: {
