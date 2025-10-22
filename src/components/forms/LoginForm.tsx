@@ -1,140 +1,145 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import * as z from 'zod'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
-import { useToast } from '@/hooks/use-toast'
+import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { signIn } from "next-auth/react";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Loader2 } from "lucide-react";
+import { GoogleIcon } from "@/components/icons/GoogleIcon";
+import { SiweButton } from "@/components/blockchain/SiweButton";
 
-const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-})
+const formSchema = z.object({
+  email: z.string().email({ message: "Please enter a valid email address." }),
+  password: z.string().min(1, { message: "Password is required." }),
+});
 
-type LoginFormData = z.infer<typeof loginSchema>
+export function LoginForm() {
+  const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  const [isLoading, setIsLoading] = useState(false);
 
-interface LoginFormProps {
-  onSuccess?: () => void
-  onSwitchToRegister?: () => void
-}
-
-export default function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
-  const [isLoading, setIsLoading] = useState(false)
-  const { toast } = useToast()
-
-  const form = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
-      email: '',
-      password: '',
+      email: "",
+      password: "",
     },
-  })
+  });
 
-  const onSubmit = async (data: LoginFormData) => {
-    setIsLoading(true)
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsLoading(true);
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      })
+      const result = await signIn("credentials", {
+        redirect: false,
+        email: values.email,
+        password: values.password,
+        callbackUrl,
+      });
 
-      const result = await response.json()
-
-      if (result.success) {
+      if (result?.error) {
         toast({
-          title: 'Login successful',
-          description: 'Welcome back to Kelo!',
-        })
-        onSuccess?.()
-      } else {
-        toast({
-          title: 'Login failed',
-          description: result.message || 'Please check your credentials and try again.',
-          variant: 'destructive',
-        })
+          title: "Login Failed",
+          description: "Please check your email and password and try again.",
+          variant: "destructive",
+        });
+      } else if (result?.ok) {
+        window.location.href = callbackUrl;
       }
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'An unexpected error occurred. Please try again.',
-        variant: 'destructive',
-      })
+        title: "An unexpected error occurred",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   }
 
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    await signIn("google", { callbackUrl });
+  };
+
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader>
-        <CardTitle>Login to Kelo</CardTitle>
-        <CardDescription>
-          Enter your credentials to access your account
-        </CardDescription>
-      </CardHeader>
+    <div className="space-y-6">
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
-          <CardContent className="space-y-4">
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="email"
-                      placeholder="Enter your email"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Password</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="password"
-                      placeholder="Enter your password"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Logging in...' : 'Login'}
-            </Button>
-            <div className="text-center text-sm text-muted-foreground">
-              Don't have an account?{' '}
-              <button
-                type="button"
-                onClick={onSwitchToRegister}
-                className="text-primary hover:underline"
-              >
-                Sign up
-              </button>
-            </div>
-          </CardFooter>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Email</FormLabel>
+                <FormControl>
+                  <Input
+                    type="email"
+                    placeholder="you@example.com"
+                    {...field}
+                    disabled={isLoading}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Password</FormLabel>
+                <FormControl>
+                  <Input
+                    type="password"
+                    placeholder="••••••••"
+                    {...field}
+                    disabled={isLoading}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Sign In
+          </Button>
         </form>
       </Form>
-    </Card>
-  )
+
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-background px-2 text-muted-foreground">
+            Or continue with
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Button variant="outline" onClick={handleGoogleSignIn} disabled={isLoading}>
+          <GoogleIcon className="mr-2 h-4 w-4" />
+          Google
+        </Button>
+        <SiweButton callbackUrl={callbackUrl} />
+      </div>
+    </div>
+  );
 }
