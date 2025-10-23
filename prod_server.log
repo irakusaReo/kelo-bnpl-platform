@@ -1,3 +1,0 @@
-
-> kelo-bnpl-platform@1.0.0 start
-> NODE_ENV=production tsx server.ts 2>&1 | tee server.log
