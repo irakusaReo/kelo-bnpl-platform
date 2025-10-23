@@ -13,12 +13,25 @@ import { Product } from "@/types"
 import { formatCurrency } from "@/utils/formatting"
 import Image from "next/image"
 import Link from "next/link"
+import { useCartStore } from "@/store/cart-store"
+import { useToast } from "@/hooks/use-toast"
 
 interface ProductCardProps {
   product: Product
 }
 
 export function ProductCard({ product }: ProductCardProps) {
+  const { addItem } = useCartStore()
+  const { toast } = useToast()
+
+  const handleAddToCart = () => {
+    addItem(product)
+    toast({
+      title: "Added to cart",
+      description: `${product.name} has been added to your cart.`,
+    })
+  }
+
   return (
     <Card className="flex flex-col h-full">
       <CardHeader className="p-0">
@@ -43,7 +56,7 @@ export function ProductCard({ product }: ProductCardProps) {
       </CardContent>
       <CardFooter className="p-4 flex justify-between items-center">
         <p className="text-lg font-bold">{formatCurrency(product.price)}</p>
-        <Button>Add to Cart</Button>
+        <Button onClick={handleAddToCart}>Add to Cart</Button>
       </CardFooter>
     </Card>
   )

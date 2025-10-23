@@ -13,7 +13,7 @@ export function MainNav() {
       <nav className="flex items-center space-x-6 text-sm font-medium">
         <NavLink href="/marketplace">Marketplace</NavLink>
         <NavLink href="/dashboard">Dashboard</NavLink>
-        <NavLink href="/merchant/dashboard">For Merchants</NavLink>
+        <NavLink href="/auth/merchant-register">For Merchants</NavLink>
       </nav>
     </div>
   )
