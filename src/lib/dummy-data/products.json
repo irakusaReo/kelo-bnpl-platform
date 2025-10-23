@@ -1,0 +1,111 @@
+
+[
+  {
+    "id": "1",
+    "name": "Wireless Headphones",
+    "description": "High-fidelity sound and deep bass for an immersive listening experience.",
+    "price": 199.99,
+    "storeId": "store-1",
+    "category": "Electronics",
+    "imageUrl": "/images/headphones.png"
+  },
+  {
+    "id": "2",
+    "name": "Smartwatch Pro",
+    "description": "Track your fitness, get notifications, and stay connected on the go.",
+    "price": 249.99,
+    "storeId": "store-1",
+    "category": "Electronics",
+    "imageUrl": "/images/watch.png"
+  },
+  {
+    "id": "3",
+    "name": "Laptop Pro 14 inch",
+    "description": "Powerful performance for professionals and creatives.",
+    "price": 1299.99,
+    "storeId": "store-2",
+    "category": "Computers",
+    "imageUrl": "/images/laptop.png"
+  },
+  {
+    "id": "4",
+    "name": "Leather Backpack",
+    "description": "Stylish and durable backpack for daily use.",
+    "price": 89.99,
+    "storeId": "store-3",
+    "category": "Fashion",
+    "imageUrl": "/images/backpack.png"
+  },
+  {
+    "id": "5",
+    "name": "Modern Desk Lamp",
+    "description": "Adjustable LED lamp with a sleek, minimalist design.",
+    "price": 49.99,
+    "storeId": "store-2",
+    "category": "Home Goods",
+    "imageUrl": "/images/lamp.png"
+  },
+  {
+    "id": "6",
+    "name": "Running Shoes",
+    "description": "Lightweight and comfortable shoes for your daily run.",
+    "price": 129.99,
+    "storeId": "store-3",
+    "category": "Fashion",
+    "imageUrl": "/images/shoes.png"
+  },
+  {
+    "id": "7",
+    "name": "Coffee Maker",
+    "description": "Brew the perfect cup of coffee every morning.",
+    "price": 79.99,
+    "storeId": "store-2",
+    "category": "Home Goods",
+    "imageUrl": "/images/coffee-maker.png"
+  },
+  {
+    "id": "8",
+    "name": "Bluetooth Speaker",
+    "description": "Portable speaker with rich sound and long battery life.",
+    "price": 69.99,
+    "storeId": "store-1",
+    "category": "Electronics",
+    "imageUrl": "/images/speaker.png"
+  },
+  {
+    "id": "9",
+    "name": "Sunglasses",
+    "description": "Protect your eyes with these stylish sunglasses.",
+    "price": 59.99,
+    "storeId": "store-3",
+    "category": "Fashion",
+    "imageUrl": "/images/sunglasses.png"
+  },
+  {
+    "id": "10",
+    "name": "Yoga Mat",
+    "description": "Comfortable and non-slip mat for your yoga practice.",
+    "price": 39.99,
+    "storeId": "store-4",
+    "category": "Fitness",
+    "imageUrl": "/images/yoga-mat.png"
+  },
+  {
+    "id": "11",
+    "name": "Electric Kettle",
+    "description": "Quickly boil water for tea, coffee, or oatmeal.",
+    "price": 29.99,
+    "storeId": "store-2",
+    "category": "Home Goods",
+    "imageUrl": "/images/kettle.png"
+  },
+  {
+    "id": "12",
+    "name": "Gaming Mouse",
+    "description": "High-precision gaming mouse for competitive gamers.",
+    "price": 49.99,
+    "storeId": "store-1",
+    "category": "Electronics",
+    "imageUrl": "/images/mouse.png"
+  }
+]

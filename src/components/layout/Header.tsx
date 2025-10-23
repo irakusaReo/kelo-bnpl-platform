@@ -1,36 +1,35 @@
+
+'use client'
+
 import Link from 'next/link'
+import { MainNav } from '@/components/layout/main-nav'
+import { UserNav } from '@/components/layout/user-nav'
 import { Button } from '@/components/ui/button'
+import { useSession } from 'next-auth/react'
 
 export default function Header() {
-  return (
-    <header className="header">
-      <div className="container mx-auto px-4 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Link href="/" className="text-2xl font-bold">
-              Kelo
-            </Link>
-            <nav className="hidden md:flex space-x-6">
-              <Link href="/dashboard" className="hover:text-primary">
-                Dashboard
-              </Link>
-              <Link href="/merchant" className="hover:text-primary">
-                For Merchants
-              </Link>
-              <Link href="/about" className="hover:text-primary">
-                About
-              </Link>
-            </nav>
-          </div>
+  const { data: session, status } = useSession()
+  const isAuthenticated = status === 'authenticated'
 
-          <div className="flex items-center space-x-4">
-            <Button asChild variant="outline">
-              <Link href="/auth/login">Login</Link>
-            </Button>
-            <Button asChild>
-              <Link href="/auth/register">Get Started</Link>
-            </Button>
-          </div>
+  return (
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-16 items-center">
+        <MainNav />
+        <div className="flex flex-1 items-center justify-end space-x-4">
+          <nav className="flex items-center space-x-2">
+            {isAuthenticated ? (
+              <UserNav />
+            ) : (
+              <>
+                <Button asChild variant="ghost">
+                  <Link href="/auth/login">Login</Link>
+                </Button>
+                <Button asChild>
+                  <Link href="/auth/register">Sign Up</Link>
+                </Button>
+              </>
+            )}
+          </nav>
         </div>
       </div>
     </header>

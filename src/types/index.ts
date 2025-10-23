@@ -1,3 +1,4 @@
+
 // Core application types, aligned with the Prisma schema and Go models.
 
 export type IntegrationType = 'INTEGRATED' | 'PARTNER';
@@ -22,6 +23,7 @@ export interface Product {
   price: number;
   storeId: string;
   category?: string;
+  imageUrl?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -42,4 +44,32 @@ export interface OrderItem {
   quantity: number;
   price: number; // Price at the time of purchase
   createdAt: string;
+}
+
+export interface Repayment {
+  id: string;
+  amount: number;
+  date: Date;
+}
+
+export interface Loan {
+  id: string;
+  userId: string;
+  amount: number;
+  interestRate: number;
+  term: number;
+  status: 'pending' | 'active' | 'paid' | 'defaulted';
+  applicationDate: Date;
+  approvalDate: Date | null;
+  dueDate: Date;
+  repayments: Repayment[];
+}
+
+export interface Payment {
+  id: string;
+  loanId: string;
+  amount: number;
+  paymentDate: Date;
+  method: 'M-Pesa' | 'Bank Transfer' | 'Crypto';
+  status: 'completed' | 'pending' | 'failed';
 }
