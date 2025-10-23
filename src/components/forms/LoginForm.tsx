@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useState } from 'react'
@@ -6,11 +7,11 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardFooter } from '@/components/ui/card'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { useToast } from '@/hooks/use-toast'
 import { signIn } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -20,13 +21,13 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>
 
 interface LoginFormProps {
-  onSuccess?: () => void
   onSwitchToRegister?: () => void
 }
 
-export default function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
+export default function LoginForm({ onSwitchToRegister }: LoginFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
+  const router = useRouter()
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -40,8 +41,7 @@ export default function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormPr
     setIsLoading(true)
     try {
       const result = await signIn('credentials', {
-        redirect: true,
-        callbackUrl: '/marketplace',
+        redirect: false,
         email: data.email,
         password: data.password,
       })
@@ -51,27 +51,23 @@ export default function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormPr
           title: 'Login failed',
           description: 'Please check your credentials and try again.',
           variant: 'destructive',
-        });
+        })
+      } else if (result?.ok) {
+        router.push('/marketplace')
       }
     } catch (error) {
       toast({
         title: 'Error',
         description: 'An unexpected error occurred. Please try again.',
         variant: 'destructive',
-      });
+      })
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader>
-        <CardTitle>Login to Kelo</CardTitle>
-        <CardDescription>
-          Enter your credentials to access your account
-        </CardDescription>
-      </CardHeader>
+    <Card className="w-full">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <CardContent className="space-y-4">

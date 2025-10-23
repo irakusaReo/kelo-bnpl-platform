@@ -60,6 +60,11 @@ export function UserNav() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
+           <Link href="/dashboard" passHref>
+            <DropdownMenuItem>
+              Dashboard
+            </DropdownMenuItem>
+          </Link>
           <Link href="/dashboard/profile" passHref>
             <DropdownMenuItem>
               Profile
