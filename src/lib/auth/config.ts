@@ -8,33 +8,35 @@ import { AuthOptions } from "next-auth";
 import { SiweMessage } from "siwe";
 
 export const getAuthOptions = (): AuthOptions => {
-  return {
-    providers: [
-        GoogleProvider({
-            clientId: process.env.GOOGLE_CLIENT_ID!,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-            authorization: {
-                params: {
-                    prompt: "consent",
-                    access_type: "offline",
-                    response_type: "code",
-                },
-            },
-        }),
-        CoinbaseProvider({
-            clientId: process.env.COINBASE_CLIENT_ID!,
-            clientSecret: process.env.COINBASE_CLIENT_SECRET!,
-        }),
-      CredentialsProvider({
-        name: "Credentials",
-        credentials: {
+  const providers: any[] = [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          prompt: "consent",
+          access_type: "offline",
+          response_type: "code",
+        },
+      },
+    }),
+    CoinbaseProvider({
+      clientId: process.env.COINBASE_CLIENT_ID!,
+      clientSecret: process.env.COINBASE_CLIENT_SECRET!,
+    }),
+    CredentialsProvider({
+      name: "Credentials",
+      credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
         firstName: { label: "First Name", type: "text" },
         lastName: { label: "Last Name", type: "text" },
         phone: { label: "Phone", type: "text" },
         businessName: { label: "Business Name", type: "text" },
-        businessRegNumber: { label: "Business Registration Number", type: "text" },
+        businessRegNumber: {
+          label: "Business Registration Number",
+          type: "text",
+        },
         isRegister: { label: "Is Register", type: "text" },
         role: { label: "Role", type: "text" },
       },
@@ -44,15 +46,18 @@ export const getAuthOptions = (): AuthOptions => {
         }
 
         const supabaseAdmin = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_URL!,
           process.env.SUPABASE_SERVICE_ROLE_KEY!
         );
 
         // Handle Registration
-        if (credentials.isRegister === 'true') {
-          const role = credentials.role || 'user'; // Default to 'user'
+        if (credentials.isRegister === "true") {
+          const role = credentials.role || "user"; // Default to 'user'
 
-          const { data: { user }, error: creationError } = await supabaseAdmin.auth.admin.createUser({
+          const {
+            data: { user },
+            error: creationError,
+          } = await supabaseAdmin.auth.admin.createUser({
             email: credentials.email,
             password: credentials.password,
             email_confirm: true,
@@ -65,7 +70,10 @@ export const getAuthOptions = (): AuthOptions => {
           });
 
           if (creationError) {
-            console.error('Supabase user creation error:', creationError.message);
+            console.error(
+              "Supabase user creation error:",
+              creationError.message
+            );
             throw new Error(`Failed to create user: ${creationError.message}`);
           }
 
@@ -74,12 +82,14 @@ export const getAuthOptions = (): AuthOptions => {
           }
 
           // If the user is a merchant, create their merchant record.
-          if (role === 'merchant') {
+          if (role === "merchant") {
             if (!credentials.businessName) {
-              throw new Error('Business name is required for merchant registration.');
+              throw new Error(
+                "Business name is required for merchant registration."
+              );
             }
             const { error: merchantError } = await supabaseAdmin
-              .from('merchants')
+              .from("merchants")
               .insert({
                 id: user.id,
                 business_name: credentials.businessName,
@@ -87,10 +97,15 @@ export const getAuthOptions = (): AuthOptions => {
               });
 
             if (merchantError) {
-              console.error(`Failed to create merchant record for user ${user.id}:`, merchantError.message);
+              console.error(
+                `Failed to create merchant record for user ${user.id}:`,
+                merchantError.message
+              );
               // Attempt to delete the user to allow them to try again, preventing orphaned users
               await supabaseAdmin.auth.admin.deleteUser(user.id);
-              throw new Error(`User account created, but failed to create merchant record. Please try again.`);
+              throw new Error(
+                `User account created, but failed to create merchant record. Please try again.`
+              );
             }
           }
 
@@ -120,49 +135,75 @@ export const getAuthOptions = (): AuthOptions => {
         };
       },
     }),
-  ],
-  adapter: SupabaseAdapter({
-    url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    secret: process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  }),
-  session: {
-    strategy: "jwt",
-  },
-  callbacks: {
-    async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id as string;
-        session.user.role = token.role as string;
-      }
-      return session;
-    },
-    async jwt({ token, user }) {
-        if (user) {
-            token.id = user.id;
-            // Fetch user role from the database
-            const supabaseAdmin = createClient(
-                process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                process.env.SUPABASE_SERVICE_ROLE_KEY!
-            );
-            const { data, error } = await supabaseAdmin
-                .from("users")
-                .select("role")
-                .eq("id", user.id)
-                .single();
+  ];
 
-            if (!error && data) {
-                token.role = data.role;
-            }
+  if (process.env.MOCK_AUTH === "true") {
+    providers.push(
+      CredentialsProvider({
+        name: "Mock",
+        credentials: {
+          userId: { label: "User ID", type: "text" },
+        },
+        async authorize(credentials) {
+          if (credentials) {
+            return {
+              id: credentials.userId,
+              email: `${credentials.userId}@example.com`,
+            };
+          }
+          return null;
+        },
+      })
+    );
+  }
+
+  return {
+    providers,
+    adapter: SupabaseAdapter({
+      url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      secret: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    }),
+    session: {
+      strategy: "jwt",
+    },
+    callbacks: {
+      async session({ session, token }) {
+        if (token) {
+          session.user.id = token.id as string;
+          session.user.role = token.role as string;
+        }
+        return session;
+      },
+      async jwt({ token, user }) {
+        if (user) {
+          token.id = user.id;
+          // Fetch user role from the database
+          const supabaseAdmin = createClient(
+            process.env.SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
+          );
+          const { data, error } = await supabaseAdmin
+            .from("users")
+            .select("role")
+            .eq("id", user.id)
+            .single();
+
+          if (!error && data) {
+            token.role = data.role;
+          }
         }
         return token;
+      },
+      async redirect({ baseUrl }) {
+        return `${baseUrl}/marketplace`;
+      },
     },
-    async redirect({ baseUrl }) {
-      return `${baseUrl}/marketplace`;
-    }
-  },
-  pages: {
-    signIn: "/auth/login",
-  },
-  secret: process.env.MOCK_AUTH === 'true' ? process.env.MOCK_AUTH_SECRET : process.env.NEXTAUTH_SECRET,
-  }
+    pages: {
+      signIn: "/auth/login",
+    },
+    secret:
+      process.env.MOCK_AUTH === "true"
+        ? process.env.MOCK_AUTH_SECRET
+        : process.env.NEXTAUTH_SECRET,
+  };
 };

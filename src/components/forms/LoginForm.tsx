@@ -110,6 +110,21 @@ export default function LoginForm({ onSwitchToRegister }: LoginFormProps) {
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? 'Logging in...' : 'Login'}
             </Button>
+            {process.env.NEXT_PUBLIC_MOCK_AUTH === 'true' && (
+              <Button
+                type="button"
+                className="w-full"
+                onClick={async () => {
+                  await signIn('mock', {
+                    redirect: false,
+                    userId: 'test-user',
+                  });
+                  router.push('/marketplace');
+                }}
+              >
+                Sign in with Mock
+              </Button>
+            )}
             <div className="text-center text-sm text-muted-foreground">
               Don't have an account?{' '}
               <button

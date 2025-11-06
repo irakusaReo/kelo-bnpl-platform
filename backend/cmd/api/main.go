@@ -15,13 +15,14 @@ import (
 	"kelo-backend/pkg/logger"
 	"kelo-backend/pkg/liquidity"
 	"kelo-backend/pkg/merchant"
-	"kelo-backend/api/handlers"
 	"kelo-backend/pkg/admin"
 	"kelo-backend/pkg/bnpl"
+	"kelo-backend/pkg/bnpl/handlers"
 	"kelo-backend/pkg/order"
 	"kelo-backend/pkg/product"
 	"kelo-backend/pkg/relayer"
 	"kelo-backend/pkg/staking"
+	"kelo-backend/pkg/zk"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
@@ -66,6 +67,10 @@ func main() {
 	repaymentService := bnpl.NewRepaymentService(supabaseClient, blockchainClients)
 	stakingService := staking.NewService()
 	adminService := admin.NewService(supabaseClient)
+	zkService, err := zk.NewZKService(supabaseClient, cfg)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to initialize ZK service")
+	}
 
 	// Initialize handlers
 	creditScoreHandler := creditscore.NewCreditScoreHandler(creditScoreService)
@@ -78,6 +83,7 @@ func main() {
 	repaymentHandler := handlers.NewRepaymentHandler(repaymentService)
 	stakingHandler := handlers.NewStakingHandler(stakingService)
 	adminHandler := admin.NewHandler(adminService)
+	zkHandler := zk.NewZKHandler(zkService)
 
 	// Initialize Gin router
 	if cfg.Environment == "production" {
@@ -101,6 +107,7 @@ func main() {
 		bnplHandler.RegisterRoutes(v1)
 		stakingHandler.RegisterRoutes(v1)
 		adminHandler.RegisterRoutes(v1)
+		zkHandler.RegisterRoutes(v1)
 
 		// Repayment route
 		repaymentRoutes := v1.Group("/repayment")
