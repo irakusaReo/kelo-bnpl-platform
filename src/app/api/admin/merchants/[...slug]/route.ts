@@ -6,7 +6,7 @@ const GO_BACKEND_URL = process.env.GO_BACKEND_URL || 'http://localhost:8080'
 
 async function handleMerchantAction(
   req: NextRequest,
-  { params }: { params: { slug: string[] } }
+  params: { slug: string[] }
 ) {
   const authOptions = getAuthOptions()
   const session = await getServerSession(authOptions)
@@ -24,7 +24,7 @@ async function handleMerchantAction(
 
   try {
     const response = await fetch(url, {
-      method: 'PUT',
+      method: req.method,
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${session.accessToken}`,
@@ -50,4 +50,30 @@ async function handleMerchantAction(
   }
 }
 
-export { handleMerchantAction as PUT }
+export async function GET(
+  req: NextRequest,
+  { params }: { params: { slug: string[] } }
+) {
+  return handleMerchantAction(req, params)
+}
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: { slug: string[] } }
+) {
+  return handleMerchantAction(req, params)
+}
+
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: { slug: string[] } }
+) {
+  return handleMerchantAction(req, params)
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { slug: string[] } }
+) {
+  return handleMerchantAction(req, params)
+}

@@ -24,6 +24,7 @@ type CreditScoreService struct {
 	client       *supabase.Client
 	blockchain   *blockchain.Clients
 	config       *config.Config
+	zkService    *zk.ZKService
 }
 
 // CreditScoreReport represents a comprehensive credit score report
@@ -45,6 +46,7 @@ type CreditScoreReport struct {
 	HCSAnalysis      *HCSAnalytics       `json:"hcs_analysis,omitempty"`
 	RiskAssessment   *RiskAssessment     `json:"risk_assessment,omitempty"`
 	LoanEligibility  *LoanEligibility    `json:"loan_eligibility,omitempty"`
+	ZKAnalysis       *ZKAnalysis         `json:"zk_analysis,omitempty"`
 }
 
 // OnChainAnalysis represents on-chain behavior analysis
@@ -172,8 +174,15 @@ type EligibilityFactor struct {
 	Description string  `json:"description"`
 }
 
+// ZKAnalysis represents ZK proof verification analysis
+type ZKAnalysis struct {
+	IsVerified         bool      `json:"is_verified"`
+	LastVerifiedAt     time.Time `json:"last_verified_at"`
+	VerificationTxHash string    `json:"verification_tx_hash"`
+}
+
 // NewCreditScoreService creates a new credit score service instance
-func NewCreditScoreService(client *supabase.Client, blockchain *blockchain.Clients, cfg *config.Config) *CreditScoreService {
+func NewCreditScoreService(client *supabase.Client, blockchain *blockchain.Clients, cfg *config.Config, zkService *zk.ZKService) *CreditScoreService {
 	engine := NewCreditScoreEngine(client, blockchain, cfg)
 
 	service := &CreditScoreService{
@@ -184,6 +193,7 @@ func NewCreditScoreService(client *supabase.Client, blockchain *blockchain.Clien
 		client:       client,
 		blockchain:   blockchain,
 		config:       cfg,
+		zkService:    zkService,
 	}
 
 	return service
@@ -288,6 +298,13 @@ func (s *CreditScoreService) addDetailedAnalyses(ctx context.Context, user *mode
 		return fmt.Errorf("failed to generate HCS analysis: %w", err)
 	}
 	report.HCSAnalysis = hcsAnalysis
+
+	// ZK analysis
+	zkAnalysis, err := s.generateZKAnalysis(ctx, user)
+	if err != nil {
+		return fmt.Errorf("failed to generate ZK analysis: %w", err)
+	}
+	report.ZKAnalysis = zkAnalysis
 
 	return nil
 }
@@ -734,6 +751,18 @@ func (s *CreditScoreService) GetCreditScoreHistory(ctx context.Context, userID s
 	}
 
 	return scores, nil
+}
+
+// generateZKAnalysis generates ZK proof verification analysis
+func (s *CreditScoreService) generateZKAnalysis(ctx context.Context, user *models.Profile) (*ZKAnalysis, error) {
+	// This is a placeholder as ZK proof verification status would be retrieved from the database.
+	// The database would be updated by a separate process that listens for events from the
+	// LayerZero bridge.
+	return &ZKAnalysis{
+		IsVerified:         false, // Default to false
+		LastVerifiedAt:     time.Time{},
+		VerificationTxHash: "",
+	}, nil
 }
 
 // AddExternalDataSource adds an external data source for a user
