@@ -3,6 +3,13 @@
 
 export type IntegrationType = 'INTEGRATED' | 'PARTNER';
 
+export interface Profile {
+  id: string;
+  firstName: string;
+  lastName: string;
+  avatarUrl?: string;
+}
+
 export interface MerchantStore {
   id: string;
   name: string;

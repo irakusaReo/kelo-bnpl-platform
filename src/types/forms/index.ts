@@ -26,8 +26,10 @@ export const registerSchema = z.object({
   firstName: z.string().min(2, 'First name must be at least 2 characters'),
   lastName: z.string().min(2, 'Last name must be at least 2 characters'),
   phone: phoneSchema.optional(),
-  role: z.enum(['borrower', 'merchant'], { required_error: 'Please select a role' }),
-  agreeToTerms: z.boolean().refine(val => val === true, 'You must agree to the terms and conditions'),
+  role: z.enum(['borrower', 'merchant'], { message: 'Please select a role' }),
+  agreeToTerms: z.boolean().refine(val => val === true, {
+    message: 'You must agree to the terms and conditions'
+  }),
 }).refine(data => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
@@ -116,9 +118,7 @@ export type RejectLoanFormValues = z.infer<typeof rejectLoanSchema>;
 export const makePaymentSchema = z.object({
   loanId: z.string().min(1, 'Loan ID is required'),
   amount: amountSchema,
-  paymentMethod: z.enum(['mpesa', 'bank_transfer', 'crypto', 'card'], {
-    required_error: 'Please select a payment method',
-  }),
+  paymentMethod: z.enum(['mpesa', 'bank_transfer', 'crypto', 'card'], { message: 'Please select a payment method' }),
   transactionId: z.string().optional(),
 });
 
@@ -171,9 +171,7 @@ export type UpdateMerchantFormValues = z.infer<typeof updateMerchantSchema>;
 // Verify merchant form schema
 export const verifyMerchantSchema = z.object({
   merchantId: z.string().min(1, 'Merchant ID is required'),
-  status: z.enum(['active', 'inactive', 'suspended', 'rejected'], {
-    required_error: 'Please select a status',
-  }),
+  status: z.enum(['active', 'inactive', 'suspended', 'rejected'], { message: 'Please select a status' }),
   notes: z.string().max(1000, 'Notes must be less than 1000 characters').optional(),
 });
 
@@ -193,13 +191,13 @@ export type SearchFormValues = z.infer<typeof searchSchema>;
 
 // KYC verification form schema
 export const kycVerificationSchema = z.object({
-  documentType: z.enum(['passport', 'national_id', 'drivers_license', 'other'], {
-    required_error: 'Please select a document type',
-  }),
+  documentType: z.enum(['passport', 'national_id', 'drivers_license', 'other'], { message: 'Please select a document type' }),
   documentNumber: z.string().min(1, 'Document number is required'),
   documentImage: z.string().min(1, 'Document image is required'),
   selfieImage: z.string().min(1, 'Selfie image is required'),
-  dateOfBirth: z.string().min(1, 'Date of birth is required'),
+  dateOfBirth: z.coerce.date({
+    errorMap: () => ({ message: "Please provide a valid date" }),
+  }),
   nationality: z.string().min(1, 'Nationality is required'),
 });
 

@@ -2,12 +2,14 @@
 import { NextResponse } from 'next/server';
 import products from '@/lib/dummy-data/products.json';
 
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  const productId = params.id;
-  const product = products.find((p) => p.id === productId);
+// CRITICAL: Next.js 15 requires Promise
+type RouteContext = {
+  params: Promise<{ id: string }>
+}
+
+export async function GET(request: Request, context: RouteContext) {
+  const { id: productId } = await context.params // MUST await params in Next.js 15
+  const product = products.find(p => p.id === productId)
 
   if (product) {
     return NextResponse.json(product);

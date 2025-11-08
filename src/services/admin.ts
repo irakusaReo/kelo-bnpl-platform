@@ -1,6 +1,6 @@
 import { fetcher, poster } from './api'
 import { Profile } from '@/types/profile'
-import { MerchantStore } from '@/types/merchant'
+import { MerchantStore } from '@/types' // Use the more detailed type
 import { PlatformAnalytics } from '@/types/analytics'
 
 // Analytics

@@ -4,10 +4,13 @@ import { getAuthOptions } from '@/lib/auth/config'
 
 const GO_BACKEND_URL = process.env.GO_BACKEND_URL || 'http://localhost:8080'
 
-async function handleUserAction(
-  req: NextRequest,
-  params: { slug: string[] }
-) {
+// CRITICAL: Next.js 15 requires Promise
+type RouteContext = {
+  params: Promise<{ slug: string[] }>
+}
+
+async function handleUserAction(req: NextRequest, context: RouteContext) {
+  const { slug } = await context.params // MUST await params in Next.js 15
   const authOptions = getAuthOptions()
   const session = await getServerSession(authOptions)
 
@@ -15,7 +18,7 @@ async function handleUserAction(
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
   }
 
-  const [userId, action] = params.slug
+  const [userId, action] = slug
   if (!userId || !action) {
     return NextResponse.json({ message: 'Invalid request' }, { status: 400 })
   }
@@ -55,30 +58,18 @@ async function handleUserAction(
   }
 }
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { slug: string[] } }
-) {
-  return handleUserAction(req, params)
+export async function GET(req: NextRequest, context: RouteContext) {
+  return handleUserAction(req, context)
 }
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { slug: string[] } }
-) {
-  return handleUserAction(req, params)
+export async function POST(req: NextRequest, context: RouteContext) {
+  return handleUserAction(req, context)
 }
 
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: { slug: string[] } }
-) {
-  return handleUserAction(req, params)
+export async function PUT(req: NextRequest, context: RouteContext) {
+  return handleUserAction(req, context)
 }
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { slug: string[] } }
-) {
-  return handleUserAction(req, params)
+export async function DELETE(req: NextRequest, context: RouteContext) {
+  return handleUserAction(req, context)
 }

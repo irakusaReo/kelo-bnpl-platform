@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, FieldValues } from "react-hook-form";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
@@ -49,8 +49,6 @@ export function ProductForm({
       price: 0,
       image_url: "",
     },
-    // Reset form values when the `product` prop changes
-    values: product,
     mode: "onChange",
   });
 

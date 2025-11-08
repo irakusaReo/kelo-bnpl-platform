@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth as useAuthContext } from "@/contexts/auth-context";
 import { authService } from "@/services/api/auth";
 import { toast } from "sonner";
@@ -81,25 +81,25 @@ export function useCurrentUser() {
   const [loading, setLoading] = useState(true);
   const { user: contextUser } = useAuthContext();
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const currentUser = await authService.getCurrentUser();
-        setUser(currentUser);
-      } catch (error) {
-        console.error("Failed to fetch current user:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchUser = useCallback(async () => {
+    try {
+      const currentUser = await authService.getCurrentUser();
+      setUser(currentUser);
+    } catch (error) {
+      console.error("Failed to fetch current user:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
+  useEffect(() => {
     if (contextUser) {
       setUser(contextUser);
       setLoading(false);
     } else {
       fetchUser();
     }
-  }, [contextUser]);
+  }, [contextUser, fetchUser]);
 
-  return { user, loading, refetch: () => fetchUser() };
+  return { user, loading, refetch: fetchUser };
 }
