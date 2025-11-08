@@ -1,6 +1,7 @@
 // src/services/smartAccountService.ts
 
-import { createSmartAccountClient, http } from "permissionless";
+import { createSmartAccountClient } from "permissionless";
+import { http } from "viem";
 import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
 import { base } from "viem/chains";
 import { Client, PrivateKey, AccountId } from "@hashgraph/sdk";
@@ -9,7 +10,7 @@ import { Client, PrivateKey, AccountId } from "@hashgraph/sdk";
  * Creates a new ERC-4337 smart account on the Base network.
  * @returns The address and private key of the new smart account.
  */
-export async function createSmartAccount(): Promise<{ address: string; privateKey: `0x${string}` }> {
+export async function createSmartAccount(): Promise<{ address: `0x${string}`; privateKey: `0x${string}` }> {
   const privateKey = generatePrivateKey();
   const signer = privateKeyToAccount(privateKey);
 
@@ -18,13 +19,17 @@ export async function createSmartAccount(): Promise<{ address: string; privateKe
     : "https://api.pimlico.io/v1/base/rpc?apikey=YOUR_PIMLICO_API_KEY";
 
   const smartAccount = await createSmartAccountClient({
-    signer,
+    account: signer,
     chain: base,
     bundlerUrl,
     entryPoint: "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
   });
 
-  const address = smartAccount.address;
+  if (!smartAccount.account) {
+    throw new Error("Failed to create smart account");
+  }
+
+  const address = smartAccount.account.address;
   console.log(`Smart account created at address: ${address}`);
   return { address, privateKey };
 }

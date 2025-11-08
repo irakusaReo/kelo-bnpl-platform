@@ -1,5 +1,12 @@
-import api, { fetcher, poster } from "./api";
-import { MerchantStore, Product, ProductPayload, StorePayload } from "@/types/merchant";
+import api, { fetcher, poster } from './api'
+import {
+  MerchantStore,
+  Product,
+  ProductPayload,
+  StorePayload,
+  Payout,
+  Order,
+} from '@/types/merchant'
 
 // == Store API ==
 

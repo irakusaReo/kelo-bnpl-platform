@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { store_id: string } }
-) {
+// CRITICAL: Next.js 15 requires Promise
+type RouteContext = {
+  params: Promise<{ store_id: string }>
+}
+
+export async function GET(request: NextRequest, context: RouteContext) {
   try {
-    const backendUrl = `http://localhost:8080/v1/stores/${params.store_id}/products`;
+    const { store_id } = await context.params // MUST await params in Next.js 15
+    const backendUrl = `http://localhost:8080/v1/stores/${store_id}/products`
 
     const response = await fetch(backendUrl, {
-      method: "GET",
+      method: 'GET',
       headers: {
         "Content-Type": "application/json",
         // Forward any other necessary headers, like Authorization

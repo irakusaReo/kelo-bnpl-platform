@@ -2,16 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { getAuthOptions } from "@/lib/auth/config";
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { slug: string[] } }
-) {
-  const session = await getServerSession(getAuthOptions());
+// CRITICAL: Next.js 15 requires Promise
+type RouteContext = {
+  params: Promise<{ slug: string[] }>
+}
+
+export async function POST(request: NextRequest, context: RouteContext) {
+  const session = await getServerSession(getAuthOptions())
   if (!session) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
   }
 
-  const slug = params.slug.join("/");
+  const { slug: slugArray } = await context.params // MUST await params in Next.js 15
+  const slug = slugArray.join('/')
   const url = `${process.env.GO_BACKEND_URL}/v1/zk/${slug}`;
 
   try {
