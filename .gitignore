@@ -61,3 +61,6 @@ dev_server.log
 # OS files
 .DS_Store
 Thumbs.db
+
+# circom
+circuits/node_modules
