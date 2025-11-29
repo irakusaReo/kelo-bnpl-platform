@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useForm, FieldValues, DefaultValues } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
 
-export function useFormValidation<T extends FieldValues>(
+export function useFormValidation<T extends Record<string, any>>(
   schema: z.ZodSchema<T>,
-  defaultValues?: DefaultValues<T>
+  defaultValues?: Partial<T>
 ) {
   const {
     register,
@@ -61,7 +61,7 @@ export const registerSchema = z.object({
     .regex(/[a-z]/, "Password must contain at least one lowercase letter")
     .regex(/[0-9]/, "Password must contain at least one number"),
   confirmPassword: z.string(),
-  terms: z.boolean({ message: "You must accept the terms and conditions" }),
+  terms: z.boolean().refine((val) => val === true, "You must accept the terms and conditions"),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],

@@ -43,8 +43,6 @@ type Config struct {
         RedisURL               string
         RelayerPrivateKey      string
         MaxRetries             int
-        ScrollTestnetRPC       string
-        KeloCreditVerifierAddress string
 }
 
 func Load() (*Config, error) {
@@ -102,8 +100,6 @@ func Load() (*Config, error) {
                 RedisURL:               getEnv("REDIS_URL", ""),
                 RelayerPrivateKey:      getEnv("RELAYER_PRIVATE_KEY", ""),
                 MaxRetries:             getEnvAsInt("MAX_RETRIES", 3),
-                ScrollTestnetRPC:       getEnv("SCROLL_TESTNET_RPC", "https://sepolia-rpc.scroll.io/"),
-                KeloCreditVerifierAddress: getEnv("KELO_CREDIT_VERIFIER_ADDRESS", ""),
         }
 
         // Validate required configuration

@@ -18,12 +18,6 @@ interface WalletState {
   providerInstance: any | null
 }
 
-declare global {
-  interface Window {
-    hashpack?: any;
-  }
-}
-
 export function useWallet() {
   const [state, setState] = useState<WalletState>({
     connection: null,

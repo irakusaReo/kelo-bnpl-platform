@@ -1,14 +1,6 @@
 // API-related types
 
-import {
-  BaseEntity,
-  PaginationParams,
-  PaginatedResponse,
-  UserPreferences,
-  FileUpload,
-  Address,
-  ContactInfo,
-} from './common'
+import { BaseEntity, PaginationParams, PaginatedResponse } from "./common";
 
 export interface User extends BaseEntity {
   id: string;
@@ -27,11 +19,6 @@ export interface User extends BaseEntity {
 
 export type UserRole = "customer" | "merchant" | "admin";
 export type UserStatus = "active" | "inactive" | "suspended" | "pending";
-export type GetUsersQuery = {
-  role?: UserRole;
-  status?: UserStatus;
-  search?: string;
-} & PaginationParams;
 
 export interface UserProfile {
   avatar?: string;
@@ -68,13 +55,6 @@ export interface Merchant extends BaseEntity {
 export type BusinessType = "retail" | "ecommerce" | "service" | "restaurant" | "other";
 export type MerchantStatus = "active" | "inactive" | "suspended" | "pending";
 export type VerificationStatus = "pending" | "verified" | "rejected";
-export type CreateMerchantRequest = Omit<Merchant, 'id' | 'userId' | 'status' | 'verificationStatus' | 'createdAt' | 'updatedAt'>;
-export type UpdateMerchantRequest = Partial<CreateMerchantRequest>;
-export type VerifyMerchantRequest = {
-  merchantId: string;
-  status: MerchantStatus;
-  notes?: string;
-};
 
 export interface BankAccount {
   id: string;
@@ -161,15 +141,6 @@ export interface LoanPayment extends BaseEntity {
 
 export type PaymentStatus = "pending" | "paid" | "overdue" | "failed";
 export type PaymentMethod = "mpesa" | "bank_transfer" | "crypto" | "wallet";
-export type Payment = LoanPayment;
-export type GetPaymentsQuery = {
-  userId?: string;
-  loanId?: string;
-  status?: PaymentStatus;
-  startDate?: string;
-  endDate?: string;
-} & PaginationParams;
-
 
 export interface PaymentRequest {
   id: string;
@@ -269,4 +240,3 @@ export interface DashboardMetrics {
   customerCount: number;
   merchantCount: number;
 }
-export type { PaginatedResponse };

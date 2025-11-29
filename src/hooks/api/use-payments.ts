@@ -1,56 +1,108 @@
+'use client'
 
-import { useQuery } from '@tanstack/react-query';
-import { Payment } from '@/types';
+import { useState, useCallback } from 'react'
+import { useToast } from '@/hooks/use-toast'
 
-const getPayments = async (): Promise<Payment[]> => {
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  return [
-    {
-      id: 'pay-1',
-      loanId: 'loan-123-abc',
-      amount: 4666.67,
-      paymentDate: new Date('2024-09-01'),
-      method: 'M-Pesa',
-      status: 'completed',
-    },
-    {
-      id: 'pay-2',
-      loanId: 'loan-456-def',
-      amount: 27083.33,
-      paymentDate: new Date('2024-07-15'),
-      method: 'Bank Transfer',
-      status: 'completed',
-    },
-    {
-      id: 'pay-3',
-      loanId: 'loan-789-ghi',
-      amount: 5000,
-      paymentDate: new Date('2024-09-22'),
-      method: 'Crypto',
-      status: 'pending',
-    },
-     {
-      id: 'pay-4',
-      loanId: 'loan-123-abc',
-      amount: 4666.67,
-      paymentDate: new Date('2024-08-01'),
-      method: 'M-Pesa',
-      status: 'completed',
-    },
-     {
-      id: 'pay-5',
-      loanId: 'loan-123-abc',
-      amount: 4666.67,
-      paymentDate: new Date('2024-07-01'),
-      method: 'M-Pesa',
-      status: 'failed',
-    },
-  ];
-};
+interface PaymentFilters {
+  status?: 'pending' | 'completed' | 'failed'
+  method?: 'mpesa' | 'bank-transfer' | 'crypto' | 'wallet'
+  dateFrom?: string
+  dateTo?: string
+}
 
-export const usePayments = () => {
-  return useQuery<Payment[], Error>({
-    queryKey: ['payments'],
-    queryFn: getPayments,
-  });
-};
+interface PaymentData {
+  id: string
+  amount: number
+  method: string
+  status: string
+  loanId: string
+  createdAt: string
+  transactionId?: string
+}
+
+export function usePayments() {
+  const [isLoading, setIsLoading] = useState(false)
+  const [payments, setPayments] = useState<PaymentData[]>([])
+  const { toast } = useToast()
+
+  const fetchPayments = useCallback(async (filters?: PaymentFilters) => {
+    setIsLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value) params.append(key, value)
+        })
+      }
+
+      const response = await fetch(`/api/payments?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        setPayments(result.data)
+        return result.data
+      } else {
+        toast({
+          title: 'Failed to fetch payments',
+          description: result.message || 'Please try again later.',
+          variant: 'destructive',
+        })
+        return []
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
+      })
+      return []
+    } finally {
+      setIsLoading(false)
+    }
+  }, [toast])
+
+  const getWalletBalance = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const response = await fetch('/api/payments/wallet', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        return result.data.balance
+      } else {
+        toast({
+          title: 'Failed to fetch wallet balance',
+          description: result.message || 'Please try again later.',
+          variant: 'destructive',
+        })
+        return 0
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
+      })
+      return 0
+    } finally {
+      setIsLoading(false)
+    }
+  }, [toast])
+
+  return {
+    payments,
+    isLoading,
+    fetchPayments,
+    getWalletBalance,
+  }
+}

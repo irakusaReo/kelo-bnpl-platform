@@ -121,7 +121,7 @@ export default function RegisterPage() {
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="register">Register</TabsTrigger>
             </TabsList>
-
+            
             <TabsContent value="login">
               <form onSubmit={handleLogin}>
                 <CardHeader>
@@ -216,7 +216,7 @@ export default function RegisterPage() {
             </TabsContent>
           </Tabs>
         </Card>
-
+        
         <div className="mt-6 text-center"><div className="inline-flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400"><Shield className="h-4 w-4" /><span>Your data is secure and encrypted</span></div></div>
         <div className="mt-4 text-center"><p className="text-sm text-gray-600 dark:text-gray-400">Are you a merchant? <Link href="/auth/merchant-register" className="text-blue-600 hover:underline font-medium">Register here</Link></p></div>
       </div>

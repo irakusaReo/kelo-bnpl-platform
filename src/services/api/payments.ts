@@ -15,7 +15,7 @@ export class PaymentsService {
 
   async makePayment(data: MakePaymentRequest): Promise<Payment> {
     const response = await apiClient.post<Payment>(this.basePath, data);
-    return response.data;
+    return response;
   }
 
   async getPayments(query?: GetPaymentsQuery): Promise<PaginatedResponse<Payment>> {
@@ -32,12 +32,12 @@ export class PaymentsService {
     const response = await apiClient.get<PaginatedResponse<Payment>>(
       `${this.basePath}?${params.toString()}`
     );
-    return response.data;
+    return response;
   }
 
   async getPayment(paymentId: string): Promise<Payment> {
     const response = await apiClient.get<Payment>(`${this.basePath}/${paymentId}`);
-    return response.data;
+    return response;
   }
 
   async getUserPayments(userId: string, query?: Omit<GetPaymentsQuery, 'userId'>): Promise<PaginatedResponse<Payment>> {
@@ -55,7 +55,7 @@ export class PaymentsService {
     const response = await apiClient.get<PaginatedResponse<Payment>>(
       `${this.basePath}?${params.toString()}`
     );
-    return response.data;
+    return response;
   }
 
   async getLoanPayments(loanId: string, query?: Omit<GetPaymentsQuery, 'loanId'>): Promise<PaginatedResponse<Payment>> {
@@ -73,14 +73,14 @@ export class PaymentsService {
     const response = await apiClient.get<PaginatedResponse<Payment>>(
       `${this.basePath}?${params.toString()}`
     );
-    return response.data;
+    return response;
   }
 
   async cancelPayment(paymentId: string, reason?: string): Promise<Payment> {
     const response = await apiClient.put<Payment>(`${this.basePath}/${paymentId}/cancel`, {
       reason,
     });
-    return response.data;
+    return response;
   }
 
   async refundPayment(
@@ -92,7 +92,7 @@ export class PaymentsService {
       amount,
       reason,
     });
-    return response.data;
+    return response;
   }
 
   async getPaymentStats(filters?: {
@@ -134,7 +134,7 @@ export class PaymentsService {
     const response = await apiClient.get<any>(
       `${this.basePath}/stats?${params.toString()}`
     );
-    return response.data;
+    return response;
   }
 
   async getPaymentMethods(): Promise<Array<{
@@ -153,7 +153,7 @@ export class PaymentsService {
     processingTime: string;
   }>> {
     const response = await apiClient.get<any>(`${this.basePath}/methods`);
-    return response.data;
+    return response;
   }
 
   async initiateMpesaPayment(data: {
@@ -169,7 +169,7 @@ export class PaymentsService {
     customerMessage: string;
   }> {
     const response = await apiClient.post<any>(`${this.basePath}/mpesa/initiate`, data);
-    return response.data;
+    return response;
   }
 
   async confirmMpesaPayment(checkoutRequestId: string): Promise<{
@@ -180,7 +180,7 @@ export class PaymentsService {
     const response = await apiClient.post<any>(`${this.basePath}/mpesa/confirm`, {
       checkoutRequestId,
     });
-    return response.data;
+    return response;
   }
 
   async initiateBankTransfer(data: {
@@ -195,7 +195,7 @@ export class PaymentsService {
     message: string;
   }> {
     const response = await apiClient.post<any>(`${this.basePath}/bank/initiate`, data);
-    return response.data;
+    return response;
   }
 
   async initiateCryptoPayment(data: {
@@ -211,7 +211,7 @@ export class PaymentsService {
     expiresAt: string;
   }> {
     const response = await apiClient.post<any>(`${this.basePath}/crypto/initiate`, data);
-    return response.data;
+    return response;
   }
 
   async initiateCardPayment(data: {
@@ -230,7 +230,7 @@ export class PaymentsService {
     redirectUrl?: string;
   }> {
     const response = await apiClient.post<any>(`${this.basePath}/card/initiate`, data);
-    return response.data;
+    return response;
   }
 
   async getPaymentReceipt(paymentId: string): Promise<{
@@ -258,7 +258,7 @@ export class PaymentsService {
     }>;
   }> {
     const response = await apiClient.get<any>(`${this.basePath}/${paymentId}/receipt`);
-    return response.data;
+    return response;
   }
 
   async downloadPaymentReceipt(paymentId: string, format: 'pdf' | 'html' = 'pdf'): Promise<Blob> {
@@ -268,7 +268,7 @@ export class PaymentsService {
         responseType: 'blob',
       }
     );
-    return response.data;
+    return response;
   }
 
   async exportPayments(query?: GetPaymentsQuery, format: 'csv' | 'xlsx' | 'pdf' = 'csv'): Promise<Blob> {
@@ -289,7 +289,7 @@ export class PaymentsService {
         responseType: 'blob',
       }
     );
-    return response.data;
+    return response;
   }
 
   async getPaymentSchedule(loanId: string): Promise<Array<{
@@ -304,7 +304,7 @@ export class PaymentsService {
     lateFee?: number;
   }>> {
     const response = await apiClient.get<any>(`${this.basePath}/schedule/${loanId}`);
-    return response.data;
+    return response;
   }
 
   async calculateEarlySettlement(loanId: string): Promise<{
@@ -319,34 +319,34 @@ export class PaymentsService {
     }>;
   }> {
     const response = await apiClient.get<any>(`${this.basePath}/early-settlement/${loanId}`);
-    return response.data;
+    return response;
   }
 
   async processEarlySettlement(loanId: string, paymentMethod: PaymentMethod): Promise<Payment> {
     const response = await apiClient.post<Payment>(`${this.basePath}/early-settlement/${loanId}`, {
       paymentMethod,
     });
-    return response.data;
+    return response;
   }
 
   // Admin-specific methods
   async getPendingPayments(query?: Omit<GetPaymentsQuery, 'status'>): Promise<PaginatedResponse<Payment>> {
     return this.getPayments({
       ...query,
-      status: 'pending',
+      status: PaymentStatus.PENDING,
     });
   }
 
   async getFailedPayments(query?: Omit<GetPaymentsQuery, 'status'>): Promise<PaginatedResponse<Payment>> {
     return this.getPayments({
       ...query,
-      status: 'failed',
+      status: PaymentStatus.FAILED,
     });
   }
 
   async retryFailedPayment(paymentId: string): Promise<Payment> {
     const response = await apiClient.post<Payment>(`${this.basePath}/${paymentId}/retry`);
-    return response.data;
+    return response;
   }
 
   async bulkProcessPayments(
@@ -361,7 +361,7 @@ export class PaymentsService {
       paymentIds,
       action,
     });
-    return response.data;
+    return response;
   }
 }
 

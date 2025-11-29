@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// CRITICAL: Next.js 15 requires Promise
-type RouteContext = {
-  params: Promise<{ store_id: string }>;
-};
-
-export async function GET(request: NextRequest, context: RouteContext) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { store_id: string } }
+) {
   try {
-    const { store_id } = await context.params; // MUST await params in Next.js 15
-    const backendUrl = `http://localhost:8080/v1/stores/${store_id}`;
+    const backendUrl = `http://localhost:8080/v1/stores/${params.store_id}`;
 
     const response = await fetch(backendUrl, {
       method: "GET",
@@ -34,10 +31,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 }
 
-export async function PUT(request: NextRequest, context: RouteContext) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { store_id: string } }
+) {
   try {
-    const { store_id } = await context.params; // MUST await params in Next.js 15
-    const backendUrl = `http://localhost:8080/v1/stores/${store_id}`;
+    const backendUrl = `http://localhost:8080/v1/stores/${params.store_id}`;
     const body = await request.json();
 
     const response = await fetch(backendUrl, {

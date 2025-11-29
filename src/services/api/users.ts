@@ -31,17 +31,17 @@ export class UsersService {
     const response = await apiClient.get<PaginatedResponse<User>>(
       `${this.basePath}?${params.toString()}`
     );
-    return response.data;
+    return response;
   }
 
   async getUser(userId: string): Promise<User> {
     const response = await apiClient.get<User>(`${this.basePath}/${userId}`);
-    return response.data;
+    return response;
   }
 
   async updateUser(userId: string, data: Partial<User>): Promise<User> {
     const response = await apiClient.put<User>(`${this.basePath}/${userId}`, data);
-    return response.data;
+    return response;
   }
 
   async deleteUser(userId: string): Promise<void> {
@@ -50,14 +50,14 @@ export class UsersService {
 
   async activateUser(userId: string): Promise<User> {
     const response = await apiClient.put<User>(`${this.basePath}/${userId}/activate`);
-    return response.data;
+    return response;
   }
 
   async deactivateUser(userId: string, reason?: string): Promise<User> {
     const response = await apiClient.put<User>(`${this.basePath}/${userId}/deactivate`, {
       reason,
     });
-    return response.data;
+    return response;
   }
 
   async suspendUser(userId: string, reason?: string, duration?: number): Promise<User> {
@@ -65,7 +65,7 @@ export class UsersService {
       reason,
       duration,
     });
-    return response.data;
+    return response;
   }
 
   async getUserStats(filters?: {
@@ -102,7 +102,7 @@ export class UsersService {
     const response = await apiClient.get<any>(
       `${this.basePath}/stats?${params.toString()}`
     );
-    return response.data;
+    return response;
   }
 
   async getUserActivity(userId: string, limit?: number): Promise<Array<{
@@ -122,7 +122,7 @@ export class UsersService {
     const response = await apiClient.get<any>(
       `${this.basePath}/${userId}/activity?${params.toString()}`
     );
-    return response.data;
+    return response;
   }
 
   async getUserSessions(userId: string): Promise<Array<{
@@ -136,7 +136,7 @@ export class UsersService {
     isActive: boolean;
   }>> {
     const response = await apiClient.get<any>(`${this.basePath}/${userId}/sessions`);
-    return response.data;
+    return response;
   }
 
   async terminateUserSession(userId: string, sessionId: string): Promise<void> {
@@ -170,22 +170,22 @@ export class UsersService {
     const response = await apiClient.get<PaginatedResponse<Merchant>>(
       `${this.basePath}/merchants?${params.toString()}`
     );
-    return response.data;
+    return response;
   }
 
   async getMerchant(merchantId: string): Promise<Merchant> {
     const response = await apiClient.get<Merchant>(`${this.basePath}/merchants/${merchantId}`);
-    return response.data;
+    return response;
   }
 
   async createMerchant(data: CreateMerchantRequest): Promise<Merchant> {
     const response = await apiClient.post<Merchant>(`${this.basePath}/merchants`, data);
-    return response.data;
+    return response;
   }
 
   async updateMerchant(merchantId: string, data: UpdateMerchantRequest): Promise<Merchant> {
     const response = await apiClient.put<Merchant>(`${this.basePath}/merchants/${merchantId}`, data);
-    return response.data;
+    return response;
   }
 
   async deleteMerchant(merchantId: string): Promise<void> {
@@ -200,7 +200,7 @@ export class UsersService {
         notes: data.notes,
       }
     );
-    return response.data;
+    return response;
   }
 
   async getMerchantStats(merchantId: string): Promise<{
@@ -217,7 +217,7 @@ export class UsersService {
     }>;
   }> {
     const response = await apiClient.get<any>(`${this.basePath}/merchants/${merchantId}/stats`);
-    return response.data;
+    return response;
   }
 
   async getMerchantDocuments(merchantId: string): Promise<Array<{
@@ -231,7 +231,7 @@ export class UsersService {
     rejectedReason?: string;
   }>> {
     const response = await apiClient.get<any>(`${this.basePath}/merchants/${merchantId}/documents`);
-    return response.data;
+    return response;
   }
 
   async uploadMerchantDocument(
@@ -263,7 +263,7 @@ export class UsersService {
         },
       }
     );
-    return response.data;
+    return response;
   }
 
   async verifyMerchantDocument(
@@ -298,7 +298,7 @@ export class UsersService {
     };
   }> {
     const response = await apiClient.get<any>(`${this.basePath}/merchants/${merchantId}/settings`);
-    return response.data;
+    return response;
   }
 
   async updateMerchantSettings(
@@ -337,7 +337,7 @@ export class UsersService {
     }>;
   }> {
     const response = await apiClient.post<any>(`${this.basePath}/${userId}/kyc/initiate`);
-    return response.data;
+    return response;
   }
 
   async submitKycDocuments(
@@ -372,7 +372,7 @@ export class UsersService {
         },
       }
     );
-    return response.data;
+    return response;
   }
 
   async getKycVerificationStatus(userId: string): Promise<{
@@ -389,7 +389,7 @@ export class UsersService {
     }>;
   }> {
     const response = await apiClient.get<any>(`${this.basePath}/${userId}/kyc/status`);
-    return response.data;
+    return response;
   }
 
   async reviewKycVerification(
@@ -423,7 +423,7 @@ export class UsersService {
         responseType: 'blob',
       }
     );
-    return response.data;
+    return response;
   }
 
   async exportMerchants(
@@ -455,7 +455,7 @@ export class UsersService {
         responseType: 'blob',
       }
     );
-    return response.data;
+    return response;
   }
 }
 

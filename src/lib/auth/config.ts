@@ -1,42 +1,69 @@
 import { NextAuthOptions } from "next-auth";
 import { SupabaseAdapter } from "@auth/supabase-adapter";
 import GoogleProvider from "next-auth/providers/google";
-import CoinbaseProvider from "next-auth/providers/coinbase";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { createClient } from "@supabase/supabase-js";
 import { AuthOptions } from "next-auth";
 import { SiweMessage } from "siwe";
 
 export const getAuthOptions = (): AuthOptions => {
-  const providers: any[] = [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      authorization: {
-        params: {
-          prompt: "consent",
-          access_type: "offline",
-          response_type: "code",
+  return {
+    providers: [
+      GoogleProvider({
+        clientId: process.env.GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      }),
+      CredentialsProvider({
+        id: "siwe",
+        name: "Ethereum",
+        credentials: {
+          message: { label: "Message", type: "text" },
+          signature: { label: "Signature", type: "text" },
         },
-      },
-    }),
-    CoinbaseProvider({
-      clientId: process.env.COINBASE_CLIENT_ID!,
-      clientSecret: process.env.COINBASE_CLIENT_SECRET!,
-    }),
-    CredentialsProvider({
-      name: "Credentials",
-      credentials: {
+        async authorize(credentials) {
+          try {
+            const siwe = new SiweMessage(JSON.parse(credentials?.message || "{}"));
+
+            const result = await siwe.verify({
+              signature: credentials?.signature || "",
+              nonce: await getCsrfToken({ req: { headers: req.headers } }),
+            });
+
+            if (result.success) {
+              const { address } = siwe;
+
+              const user = await prisma.user.findUnique({
+                where: { walletAddress: address },
+              });
+
+              if (user) {
+                return user;
+              }
+
+              const newUser = await prisma.user.create({
+                data: {
+                  walletAddress: address,
+                },
+              });
+
+              return newUser;
+            }
+            return null;
+          } catch (e) {
+            return null;
+          }
+        },
+      }),
+      CredentialsProvider({
+        name: "Credentials",
+        credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
         firstName: { label: "First Name", type: "text" },
         lastName: { label: "Last Name", type: "text" },
         phone: { label: "Phone", type: "text" },
         businessName: { label: "Business Name", type: "text" },
-        businessRegNumber: {
-          label: "Business Registration Number",
-          type: "text",
-        },
+        businessRegNumber: { label: "Business Registration Number", type: "text" },
         isRegister: { label: "Is Register", type: "text" },
         role: { label: "Role", type: "text" },
       },
@@ -46,18 +73,15 @@ export const getAuthOptions = (): AuthOptions => {
         }
 
         const supabaseAdmin = createClient(
-          process.env.SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
           process.env.SUPABASE_SERVICE_ROLE_KEY!
         );
 
         // Handle Registration
-        if (credentials.isRegister === "true") {
-          const role = credentials.role || "user"; // Default to 'user'
+        if (credentials.isRegister === 'true') {
+          const role = credentials.role || 'user'; // Default to 'user'
 
-          const {
-            data: { user },
-            error: creationError,
-          } = await supabaseAdmin.auth.admin.createUser({
+          const { data: { user }, error: creationError } = await supabaseAdmin.auth.admin.createUser({
             email: credentials.email,
             password: credentials.password,
             email_confirm: true,
@@ -70,10 +94,7 @@ export const getAuthOptions = (): AuthOptions => {
           });
 
           if (creationError) {
-            console.error(
-              "Supabase user creation error:",
-              creationError.message
-            );
+            console.error('Supabase user creation error:', creationError.message);
             throw new Error(`Failed to create user: ${creationError.message}`);
           }
 
@@ -82,14 +103,12 @@ export const getAuthOptions = (): AuthOptions => {
           }
 
           // If the user is a merchant, create their merchant record.
-          if (role === "merchant") {
+          if (role === 'merchant') {
             if (!credentials.businessName) {
-              throw new Error(
-                "Business name is required for merchant registration."
-              );
+              throw new Error('Business name is required for merchant registration.');
             }
             const { error: merchantError } = await supabaseAdmin
-              .from("merchants")
+              .from('merchants')
               .insert({
                 id: user.id,
                 business_name: credentials.businessName,
@@ -97,15 +116,10 @@ export const getAuthOptions = (): AuthOptions => {
               });
 
             if (merchantError) {
-              console.error(
-                `Failed to create merchant record for user ${user.id}:`,
-                merchantError.message
-              );
+              console.error(`Failed to create merchant record for user ${user.id}:`, merchantError.message);
               // Attempt to delete the user to allow them to try again, preventing orphaned users
               await supabaseAdmin.auth.admin.deleteUser(user.id);
-              throw new Error(
-                `User account created, but failed to create merchant record. Please try again.`
-              );
+              throw new Error(`User account created, but failed to create merchant record. Please try again.`);
             }
           }
 
@@ -135,75 +149,39 @@ export const getAuthOptions = (): AuthOptions => {
         };
       },
     }),
-  ];
-
-  if (process.env.MOCK_AUTH === "true") {
-    providers.push(
-      CredentialsProvider({
-        name: "Mock",
-        credentials: {
-          userId: { label: "User ID", type: "text" },
-        },
-        async authorize(credentials) {
-          if (credentials) {
-            return {
-              id: credentials.userId,
-              email: `${credentials.userId}@example.com`,
-            };
-          }
-          return null;
-        },
-      })
-    );
+  ],
+  adapter: SupabaseAdapter({
+    url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    secret: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  }),
+  session: {
+    strategy: "jwt",
+  },
+  callbacks: {
+    async session({ session, token }) {
+      if (token) {
+        session.user.id = token.id as string;
+      }
+      return session;
+    },
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+      }
+      return token;
+    },
+    async redirect({ url, baseUrl }) {
+      // After a sign-in, redirect to the dashboard.
+      // This handles both credentials and OAuth providers.
+      if (url.startsWith("/")) return `${baseUrl}${url}`
+      // Allows callback URLs on the same origin
+      else if (new URL(url).origin === baseUrl) return url
+      return baseUrl + '/dashboard'
+    }
+  },
+  pages: {
+    signIn: "/auth/login",
+  },
+  secret: process.env.MOCK_AUTH === 'true' ? process.env.MOCK_AUTH_SECRET : process.env.NEXTAUTH_SECRET,
   }
-
-  return {
-    providers,
-    adapter: SupabaseAdapter({
-      url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      secret: process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    }),
-    session: {
-      strategy: "jwt",
-    },
-    callbacks: {
-      async session({ session, token }) {
-        if (session.user) {
-          (session.user as any).id = token.id as string;
-          (session.user as any).role = token.role as string;
-        }
-        return session;
-      },
-      async jwt({ token, user }) {
-        if (user) {
-          token.id = user.id;
-          // Fetch user role from the database
-          const supabaseAdmin = createClient(
-            process.env.SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!
-          );
-          const { data, error } = await supabaseAdmin
-            .from("users")
-            .select("role")
-            .eq("id", user.id)
-            .single();
-
-          if (!error && data) {
-            token.role = data.role;
-          }
-        }
-        return token;
-      },
-      async redirect({ baseUrl }) {
-        return `${baseUrl}/marketplace`;
-      },
-    },
-    pages: {
-      signIn: "/auth/login",
-    },
-    secret:
-      process.env.MOCK_AUTH === "true"
-        ? process.env.MOCK_AUTH_SECRET
-        : process.env.NEXTAUTH_SECRET,
-  };
 };

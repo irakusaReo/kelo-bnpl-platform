@@ -4,16 +4,10 @@ import { getAuthOptions } from '@/lib/auth/config'
 
 const GO_BACKEND_URL = process.env.GO_BACKEND_URL || 'http://localhost:8080'
 
-// CRITICAL: Next.js 15 requires Promise
-type RouteContext = {
-  params: Promise<{ slug: string[] }>
-}
-
 async function handleMerchantAction(
   req: NextRequest,
-  context: RouteContext
+  { params }: { params: { slug: string[] } }
 ) {
-  const { slug } = await context.params // MUST await params in Next.js 15
   const authOptions = getAuthOptions()
   const session = await getServerSession(authOptions)
 
@@ -21,7 +15,7 @@ async function handleMerchantAction(
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
   }
 
-  const [merchantId, action] = slug
+  const [merchantId, action] = params.slug
   if (!merchantId || !action) {
     return NextResponse.json({ message: 'Invalid request' }, { status: 400 })
   }
@@ -30,7 +24,7 @@ async function handleMerchantAction(
 
   try {
     const response = await fetch(url, {
-      method: req.method,
+      method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${session.accessToken}`,
@@ -56,18 +50,4 @@ async function handleMerchantAction(
   }
 }
 
-export async function GET(req: NextRequest, context: RouteContext) {
-  return handleMerchantAction(req, context)
-}
-
-export async function POST(req: NextRequest, context: RouteContext) {
-  return handleMerchantAction(req, context)
-}
-
-export async function PUT(req: NextRequest, context: RouteContext) {
-  return handleMerchantAction(req, context)
-}
-
-export async function DELETE(req: NextRequest, context: RouteContext) {
-  return handleMerchantAction(req, context)
-}
+export { handleMerchantAction as PUT }

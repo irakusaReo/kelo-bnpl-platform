@@ -16,8 +16,7 @@ export function useDashboard() {
   const fetchDashboardStats = useCallback(async () => {
     setIsLoading(true)
     try {
-      const response = await api.get('/analytics/metrics')
-      const result = response.data;
+      const result = await api.get('/analytics/metrics')
       if (result.success) {
         setStats(result.data)
         return result.data
@@ -39,8 +38,7 @@ export function useDashboard() {
   const fetchActiveLoans = useCallback(async () => {
     setIsLoading(true)
     try {
-      const response = await api.get('/loans/active')
-      const result = response.data;
+      const result = await api.get('/loans/active')
       if (result.success) {
         setActiveLoans(result.data)
         return result.data
@@ -62,8 +60,7 @@ export function useDashboard() {
   const fetchPaymentSchedule = useCallback(async () => {
     setIsLoading(true)
     try {
-      const response = await api.get('/loans/payment/schedule')
-      const result = response.data;
+      const result = await api.get('/loans/payment/schedule')
       if (result.success) {
         setPaymentSchedule(result.data)
         return result.data
@@ -85,8 +82,7 @@ export function useDashboard() {
   const fetchRecentTransactions = useCallback(async () => {
     setIsLoading(true)
     try {
-      const response = await api.get('/payments/recent')
-      const result = response.data;
+      const result = await api.get('/payments/recent')
       if (result.success) {
         setRecentTransactions(result.data)
         return result.data
@@ -108,12 +104,11 @@ export function useDashboard() {
   const makePayment = useCallback(async (paymentId: string, amount: number, method: string) => {
     setIsLoading(true)
     try {
-      const response = await api.post('/loans/payment', {
+      const result = await api.post('/loans/payment', {
         paymentId,
         amount,
         method,
       })
-      const result = response.data;
 
       if (result.success) {
         toast({

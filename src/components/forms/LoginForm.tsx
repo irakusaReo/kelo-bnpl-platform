@@ -1,4 +1,3 @@
-
 'use client'
 
 import { useState } from 'react'
@@ -7,11 +6,10 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardFooter } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { useToast } from '@/hooks/use-toast'
-import { signIn } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -21,13 +19,13 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>
 
 interface LoginFormProps {
+  onSuccess?: () => void
   onSwitchToRegister?: () => void
 }
 
-export default function LoginForm({ onSwitchToRegister }: LoginFormProps) {
+export default function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
-  const router = useRouter()
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -40,20 +38,28 @@ export default function LoginForm({ onSwitchToRegister }: LoginFormProps) {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true)
     try {
-      const result = await signIn('credentials', {
-        redirect: false,
-        email: data.email,
-        password: data.password,
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
       })
 
-      if (result?.error) {
+      const result = await response.json()
+
+      if (result.success) {
+        toast({
+          title: 'Login successful',
+          description: 'Welcome back to Kelo!',
+        })
+        onSuccess?.()
+      } else {
         toast({
           title: 'Login failed',
-          description: 'Please check your credentials and try again.',
+          description: result.message || 'Please check your credentials and try again.',
           variant: 'destructive',
         })
-      } else if (result?.ok) {
-        router.push('/marketplace')
       }
     } catch (error) {
       toast({
@@ -67,7 +73,13 @@ export default function LoginForm({ onSwitchToRegister }: LoginFormProps) {
   }
 
   return (
-    <Card className="w-full">
+    <Card className="w-full max-w-md">
+      <CardHeader>
+        <CardTitle>Login to Kelo</CardTitle>
+        <CardDescription>
+          Enter your credentials to access your account
+        </CardDescription>
+      </CardHeader>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <CardContent className="space-y-4">
@@ -110,21 +122,6 @@ export default function LoginForm({ onSwitchToRegister }: LoginFormProps) {
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? 'Logging in...' : 'Login'}
             </Button>
-            {process.env.NEXT_PUBLIC_MOCK_AUTH === 'true' && (
-              <Button
-                type="button"
-                className="w-full"
-                onClick={async () => {
-                  await signIn('mock', {
-                    redirect: false,
-                    userId: 'test-user',
-                  });
-                  router.push('/marketplace');
-                }}
-              >
-                Sign in with Mock
-              </Button>
-            )}
             <div className="text-center text-sm text-muted-foreground">
               Don't have an account?{' '}
               <button

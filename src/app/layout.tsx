@@ -1,4 +1,3 @@
-
 import { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { Inter } from "next/font/google";
@@ -7,8 +6,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/contexts/AuthProvider";
 import { ThemeProvider } from "@/contexts/theme-context";
 import { UserProvider } from "@/contexts/UserContext";
+import { QueryProvider } from "@/lib/api/query-provider";
 import { SocketProvider } from "@/lib/socket/socket-provider";
-import { Web3Provider } from "@/contexts/Web3Provider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -54,16 +53,16 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <Web3Provider>
-            <AuthProvider>
-                <UserProvider>
-                  <SocketProvider>
-                    {children}
-                    <Toaster />
-                  </SocketProvider>
-                </UserProvider>
-            </AuthProvider>
-          </Web3Provider>
+          <AuthProvider>
+            <QueryProvider>
+              <UserProvider>
+                <SocketProvider>
+                  {children}
+                  <Toaster />
+                </SocketProvider>
+              </UserProvider>
+            </QueryProvider>
+          </AuthProvider>
         </ThemeProvider>
         <Analytics />
       </body>

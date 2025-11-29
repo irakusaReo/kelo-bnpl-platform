@@ -2,8 +2,6 @@
 
 A modern, blockchain-powered Buy Now Pay Later (BNPL) platform designed for the Kenyan market, integrating multi-chain blockchain technology with the powerful, open-source Supabase backend.
 
-Link to pitch deck: https://docs.google.com/presentation/d/1P6xggEAc8RXulhUR38Z6Un5pv1q_RvhMwRBn3lJUyNI/edit?usp=sharing
-
 ## 🌟 Project Overview
 
 Kelo is a comprehensive BNPL platform that enables users to:

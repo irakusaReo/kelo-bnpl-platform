@@ -156,8 +156,7 @@ export const urlSchema = z
 
 // File validation
 export const fileSchema = z
-  .instanceof(File)
-  .refine((file) => file, { message: "Please select a file" })
+  .instanceof(File, "Please select a file")
   .refine(
     (file) => file.size > 0,
     {
@@ -243,7 +242,7 @@ export const registerSchema = z.object({
   phone: phoneSchema,
   password: passwordSchema,
   confirmPassword: z.string(),
-  terms: z.boolean({ message: "You must accept the terms and conditions" }),
+  terms: z.boolean().refine((val) => val === true, "You must accept the terms and conditions"),
 }).refine(
   (data) => data.password === data.confirmPassword,
   {
@@ -262,7 +261,7 @@ export const loanApplicationSchema = z.object({
 export const paymentSchema = z.object({
   amount: amountSchema,
   paymentMethod: z.enum(["mpesa", "bank_transfer", "crypto", "wallet"], {
-    message: "Please select a valid payment method",
+    errorMap: () => ({ message: "Please select a valid payment method" }),
   }),
 });
 
@@ -280,7 +279,7 @@ export const profileUpdateSchema = z.object({
 export const merchantRegistrationSchema = z.object({
   businessName: z.string().min(2, "Business name must be at least 2 characters"),
   businessType: z.enum(["retail", "ecommerce", "service", "restaurant", "other"], {
-    message: "Please select a valid business type",
+    errorMap: () => ({ message: "Please select a valid business type" }),
   }),
   registrationNumber: businessRegNumberSchema,
   taxId: taxIdSchema.optional(),
@@ -303,12 +302,12 @@ export function validateField<T>(
 }
 
 export function getFieldErrorMessage(error: z.ZodError, fieldName: string): string {
-  const fieldError = error.issues.find((err: any) => err.path[0] === fieldName);
+  const fieldError = error.errors.find((err) => err.path[0] === fieldName);
   return fieldError?.message || "";
 }
 
 export function hasFieldError(error: z.ZodError, fieldName: string): boolean {
-  return error.issues.some((err: any) => err.path[0] === fieldName);
+  return error.errors.some((err) => err.path[0] === fieldName);
 }
 
 // Custom validation functions
