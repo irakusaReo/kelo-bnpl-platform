@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { getAuthOptions } from '@/lib/auth/config';
 import { getServerSession } from 'next-auth/next';
+import { getAuthOptions } from '@/lib/auth/config';
 
 // This route acts as a proxy to the Go backend for creating orders.
 const BACKEND_URL = 'http://localhost:8080/orders';
 
 export async function POST(request: NextRequest) {
-  const session = await getServerSession(getAuthOptions());
+  const authOptions = getAuthOptions()
+  const session = await getServerSession(authOptions);
 
   if (!session || !session.user || !session.user.id) {
     return new NextResponse('Unauthorized', { status: 401 });

@@ -3,7 +3,8 @@ import { getServerSession } from 'next-auth/next'
 import { getAuthOptions } from '@/lib/auth/config'
 
 export async function GET(request: Request) {
-  const session = await getServerSession(getAuthOptions())
+  const authOptions = getAuthOptions()
+  const session = await getServerSession(authOptions)
 
   if (!session || !session.user || !session.user.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
