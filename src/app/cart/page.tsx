@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useCartStore } from '@/store/cart-store';
@@ -11,11 +11,14 @@ import { toast } from 'sonner';
 
 const CartPage = () => {
   const { items, removeItem, updateItemQuantity, getTotalPrice, clearCart } = useCartStore();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const handleQuantityChange = (productId: string, quantity: number) => {
-    if (quantity > 0) {
-      updateItemQuantity(productId, quantity);
-    }
+    updateItemQuantity(productId, quantity);
   };
 
   const handleRemoveItem = (productId: string, productName: string) => {
@@ -24,6 +27,10 @@ const CartPage = () => {
   };
 
   const totalPrice = getTotalPrice();
+
+  if (!isClient) {
+    return null; // or a loading spinner
+  }
 
   return (
     <div className="container mx-auto py-8 px-4">

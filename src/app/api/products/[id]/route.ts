@@ -19,8 +19,7 @@ export async function GET(
   const url = `${BACKEND_URL}/${id}`;
 
   try {
-    const authOptions = getAuthOptions()
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession(getAuthOptions());
     const response = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
@@ -55,8 +54,7 @@ export async function PUT(
   const url = `${BACKEND_URL}/${id}`;
 
   try {
-    const authOptions = getAuthOptions()
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession(getAuthOptions());
     const body = await request.json();
     const response = await fetch(url, {
       method: 'PUT',
@@ -93,8 +91,7 @@ export async function DELETE(
   const url = `${BACKEND_URL}/${id}`;
 
   try {
-    const authOptions = getAuthOptions()
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession(getAuthOptions());
     const response = await fetch(url, {
       method: 'DELETE',
       headers: {

@@ -5,8 +5,7 @@ import { getAuthOptions } from '@/lib/auth/config'
 const GO_BACKEND_URL = 'http://localhost:8080/api/v1/merchant/payouts'
 
 export async function GET(request: Request) {
-  const authOptions = getAuthOptions()
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(getAuthOptions())
 
   if (!session || !session.user || !session.user.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -31,8 +30,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const authOptions = getAuthOptions()
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(getAuthOptions())
 
   if (!session || !session.user || !session.user.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

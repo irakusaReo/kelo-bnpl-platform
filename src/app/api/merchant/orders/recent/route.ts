@@ -4,8 +4,7 @@ import { getAuthOptions } from "@/lib/auth/config";
 
 export async function GET(request: NextRequest) {
   try {
-    const authOptions = getAuthOptions()
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession(getAuthOptions());
     const token = session?.accessToken;
 
     const backendUrl = `http://localhost:8080/api/v1/merchant/orders/recent`;

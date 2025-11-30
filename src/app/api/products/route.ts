@@ -16,8 +16,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const authOptions = getAuthOptions()
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession(getAuthOptions());
     // Fetch from the Go backend
     const response = await fetch(url, {
       headers: {
@@ -44,8 +43,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
 	try {
-	  const authOptions = getAuthOptions()
-	  const session = await getServerSession(authOptions);
+	  const session = await getServerSession(getAuthOptions());
 	  const body = await request.json();
 	  const response = await fetch(BACKEND_URL, {
 		method: 'POST',
