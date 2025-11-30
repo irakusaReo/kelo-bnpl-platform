@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useCartStore } from '@/store/cart-store';
@@ -9,28 +9,17 @@ import { Input } from '@/components/ui/input';
 import { Trash2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
-const CartPage = () => {
-  const { items, removeItem, updateItemQuantity, getTotalPrice, clearCart } = useCartStore();
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+export default function CartPage() {
+  const { items, removeFromCart, updateQuantity, clearCart, total } = useCartStore();
 
   const handleQuantityChange = (productId: string, quantity: number) => {
-    updateItemQuantity(productId, quantity);
+    updateQuantity(productId, quantity);
   };
 
   const handleRemoveItem = (productId: string, productName: string) => {
-    removeItem(productId);
+    removeFromCart(productId);
     toast.info(`${productName} has been removed from your cart.`);
   };
-
-  const totalPrice = getTotalPrice();
-
-  if (!isClient) {
-    return null; // or a loading spinner
-  }
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -57,7 +46,7 @@ const CartPage = () => {
               <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg">
                 <div className="flex items-center space-x-4">
                   <div className="relative h-20 w-20 bg-gray-100 rounded-md overflow-hidden">
-                    <Image src="/placeholder-image.jpg" alt={item.name} layout="fill" objectFit="cover" />
+                    <Image src={item.image || "/placeholder-image.jpg"} alt={item.name} layout="fill" objectFit="cover" />
                   </div>
                   <div>
                     <h2 className="font-semibold">{item.name}</h2>
@@ -85,7 +74,7 @@ const CartPage = () => {
             <h2 className="text-xl font-bold mb-4">Order Summary</h2>
             <div className="flex justify-between mb-2">
               <span>Subtotal</span>
-              <span>${totalPrice.toFixed(2)}</span>
+              <span>${total.toFixed(2)}</span>
             </div>
             <div className="flex justify-between mb-2">
               <span>Shipping</span>
@@ -94,7 +83,7 @@ const CartPage = () => {
             <div className="border-t my-4"></div>
             <div className="flex justify-between font-bold text-lg">
               <span>Total</span>
-              <span>${totalPrice.toFixed(2)}</span>
+              <span>${total.toFixed(2)}</span>
             </div>
             <Link href="/checkout">
               <Button className="w-full mt-6 text-lg">
@@ -107,5 +96,3 @@ const CartPage = () => {
     </div>
   );
 };
-
-export default CartPage;

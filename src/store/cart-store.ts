@@ -1,63 +1,71 @@
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { Product } from '@/types'; // Assuming a global Product type exists
+'use client'
 
-interface CartItem extends Product {
-  quantity: number;
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+
+interface CartItem {
+  id: string
+  name: string
+  price: number
+  quantity: number
+  image?: string
 }
 
-interface CartState {
-  items: CartItem[];
-  addItem: (item: Product) => void;
-  removeItem: (itemId: string) => void;
-  updateItemQuantity: (itemId: string, quantity: number) => void;
-  clearCart: () => void;
-  getItemCount: () => number;
-  getCartTotal: () => number;
+interface CartStore {
+  items: CartItem[]
+  addToCart: (item: CartItem) => void
+  removeFromCart: (id: string) => void
+  updateQuantity: (id: string, quantity: number) => void
+  clearCart: () => void
+  total: number
 }
 
-export const useCartStore = create<CartState>()(
+export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
       items: [],
-      addItem: (item) => {
-        const { items } = get();
-        const itemExists = items.find((i) => i.id === item.id);
 
-        if (itemExists) {
-          itemExists.quantity += 1;
-          set({ items: [...items] });
-        } else {
-          set({ items: [...items, { ...item, quantity: 1 }] });
-        }
-      },
-      removeItem: (itemId) => {
-        set((state) => ({
-          items: state.items.filter((item) => item.id !== itemId),
-        }));
-      },
-      updateItemQuantity: (itemId, quantity) => {
-        if (quantity <= 0) {
-          get().removeItem(itemId);
-        } else {
-          set((state) => ({
-            items: state.items.map((item) =>
-              item.id === itemId ? { ...item, quantity } : item
+      addToCart: (item) => {
+        const items = get().items
+        const existingItem = items.find((i) => i.id === item.id)
+
+        if (existingItem) {
+          set({
+            items: items.map((i) =>
+              i.id === item.id ? { ...i, quantity: i.quantity + item.quantity } : i
             ),
-          }));
+          })
+        } else {
+          set({ items: [...items, item] })
         }
       },
-      clearCart: () => set({ items: [] }),
-      getItemCount: () => {
-        return get().items.reduce((total, item) => total + item.quantity, 0);
+
+      removeFromCart: (id) => {
+        set({ items: get().items.filter((item) => item.id !== id) })
       },
-      getCartTotal: () => {
-        return get().items.reduce((total, item) => total + item.price * item.quantity, 0);
-      }
+
+      updateQuantity: (id, quantity) => {
+        if (quantity <= 0) {
+          get().removeFromCart(id)
+        } else {
+          set({
+            items: get().items.map((item) =>
+              item.id === id ? { ...item, quantity } : item
+            ),
+          })
+        }
+      },
+
+      clearCart: () => {
+        set({ items: [] })
+      },
+
+      get total() {
+        return get().items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+      },
     }),
     {
-      name: 'cart-storage', // unique name
-      storage: createJSONStorage(() => localStorage), // (optional) by default, 'localStorage' is used
+      name: 'cart-storage',
     }
   )
-);
+)
