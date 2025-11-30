@@ -7,11 +7,10 @@ export default async function MerchantLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const authOptions = getAuthOptions()
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession(getAuthOptions());
 
   if (!session || session.user.role !== "merchant") {
-    redirect("/auth/login");
+    redirect("/auth/merchant-login");
   }
 
   return (
