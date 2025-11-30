@@ -9,7 +9,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Shield, Eye, EyeOff, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { useUser } from "@/contexts/UserContext";
 import { useRouter } from "next/navigation";
 import { Toaster, toast } from "sonner";
 import { signIn, getCsrfToken } from "next-auth/react";
@@ -34,7 +33,6 @@ export default function LoginPage() {
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
 
   const [isLoading, setIsLoading] = useState(false);
-  const { supabase } = useUser();
   const router = useRouter();
 
   const { connect } = useConnect();
@@ -84,11 +82,6 @@ export default function LoginPage() {
     }
   };
 
-  useEffect(() => {
-    if (address) {
-      handleBaseLogin();
-    }
-  }, [address]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,7 +111,6 @@ export default function LoginPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabase) return;
 
     if (regPassword !== regConfirmPassword) {
       toast.error("Passwords do not match.");
@@ -127,51 +119,27 @@ export default function LoginPage() {
 
     setIsLoading(true);
 
-    try {
-      // Sign up the user
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: regEmail,
-        password: regPassword,
-        options: {
-          // Store the role in app_metadata, which is secure and not client-accessible
-          // The database trigger 'handle_new_user' will sync this to the profiles table
-          app_metadata: {
-            role: 'user',
-          },
-        },
-      });
+    const result = await signIn('credentials', {
+      redirect: false,
+      email: regEmail,
+      password: regPassword,
+      firstName: regFirstName,
+      lastName: regLastName,
+      phone: regPhone,
+      isRegister: 'true',
+      role: 'user', // Default role for standard registration
+    });
 
-      if (signUpError) {
-        toast.error(signUpError.message);
-        throw signUpError;
-      }
-
-      if (signUpData.user) {
-        // After the trigger creates the profile, update it with the additional info
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({
-            first_name: regFirstName,
-            last_name: regLastName,
-            phone: regPhone,
-          })
-          .eq('id', signUpData.user.id);
-
-        if (profileError) {
-            // This is not ideal, as the user is created but their profile isn't fully populated.
-            // In a real-world app, you might want to handle this more gracefully.
-            toast.error(`User created, but failed to save profile info: ${profileError.message}`);
-            throw profileError;
-        }
-      }
-
-      toast.success("Registration successful! Please check your email to verify your account.");
-
-    } catch (error) {
-      console.error("Registration failed:", error);
-    } finally {
-      setIsLoading(false);
+    if (result?.error) {
+      toast.error(`Registration failed: ${result.error}`);
+    } else if (result?.ok) {
+      toast.success("Registration successful! Redirecting...");
+      // You might want to show a "Check your email" message instead of redirecting
+      // if you have email verification enabled. For this flow, we'll redirect.
+      router.push('/dashboard');
     }
+
+    setIsLoading(false);
   };
 
   return (

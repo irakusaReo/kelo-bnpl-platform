@@ -5,8 +5,14 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { createClient } from "@supabase/supabase-js";
 import { AuthOptions } from "next-auth";
 import { SiweMessage } from "siwe";
+import { getCsrfToken } from "next-auth/react";
 
 export const getAuthOptions = (): AuthOptions => {
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
   return {
     providers: [
       GoogleProvider({
@@ -20,36 +26,64 @@ export const getAuthOptions = (): AuthOptions => {
           message: { label: "Message", type: "text" },
           signature: { label: "Signature", type: "text" },
         },
-        async authorize(credentials) {
+        async authorize(credentials, req) {
           try {
             const siwe = new SiweMessage(JSON.parse(credentials?.message || "{}"));
 
+            // This is a workaround for NextAuth.js not providing the request object
+            // in the authorize function. We need the CSRF token for SIWE verification.
+            // It's not the most elegant solution, but it's a common pattern for SIWE + NextAuth.
+            const nonce = await getCsrfToken({ req: { headers: req.headers } });
+
             const result = await siwe.verify({
               signature: credentials?.signature || "",
-              nonce: await getCsrfToken({ req: { headers: req.headers } }),
+              nonce,
             });
 
             if (result.success) {
               const { address } = siwe;
 
-              const user = await prisma.user.findUnique({
-                where: { walletAddress: address },
-              });
+              // Check if user exists in the 'profiles' table
+              let { data: user, error } = await supabaseAdmin
+                .from('profiles')
+                .select('*')
+                .eq('wallet_address', address)
+                .single();
 
-              if (user) {
-                return user;
+              if (error && error.code !== 'PGRST116') { // Ignore 'not found' error
+                console.error("Error fetching user by wallet address:", error);
+                return null;
               }
 
-              const newUser = await prisma.user.create({
-                data: {
-                  walletAddress: address,
+              if (user) {
+                // Return a plain object for the session, not the full Supabase user object
+                return { id: user.id, email: user.email, walletAddress: user.wallet_address };
+              }
+
+              // If user doesn't exist, create a new auth user and a profile
+              const { data: newUser, error: creationError } = await supabaseAdmin.auth.admin.createUser({
+                // Supabase doesn't require email for wallet-based sign-up,
+                // but we can create a placeholder.
+                email: `${address}@kelo.com`,
+                user_metadata: {
+                  wallet_address: address,
+                  role: 'user', // Default role for SIWE sign-up
                 },
               });
 
-              return newUser;
+              if (creationError) {
+                console.error("Failed to create user for SIWE:", creationError.message);
+                return null;
+              }
+              if (!newUser) return null;
+
+              // The database trigger 'handle_new_user' should create the profile.
+              // We'll return the new user's ID and let the session callback handle the rest.
+              return { id: newUser.user.id, email: newUser.user.email, walletAddress: address };
             }
             return null;
           } catch (e) {
+            console.error("SIWE authorization error:", e);
             return null;
           }
         },
@@ -159,14 +193,31 @@ export const getAuthOptions = (): AuthOptions => {
   },
   callbacks: {
     async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id as string;
+      if (session.user) {
+        session.user.id = token.sub ?? session.user.id;
+        (session.user as any).role = token.role;
       }
       return session;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, account, profile, isNewUser }) {
       if (user) {
-        token.id = user.id;
+        token.sub = user.id;
+
+        // On sign-in (or new user creation), fetch the role from the Supabase 'profiles' table.
+        const { data: profileData, error } = await supabaseAdmin
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+
+        if (profileData) {
+          token.role = profileData.role;
+        } else if (error && error.code !== 'PGRST116') {
+          console.error("Error fetching user role for JWT:", error.message);
+        } else {
+          // Fallback role if profile is not found (e.g., still being created by a trigger)
+          token.role = 'user';
+        }
       }
       return token;
     },
@@ -183,5 +234,5 @@ export const getAuthOptions = (): AuthOptions => {
     signIn: "/auth/login",
   },
   secret: process.env.MOCK_AUTH === 'true' ? process.env.MOCK_AUTH_SECRET : process.env.NEXTAUTH_SECRET,
-  }
+  };
 };

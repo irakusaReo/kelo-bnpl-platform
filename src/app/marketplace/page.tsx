@@ -6,7 +6,7 @@ import { ShoppingCart, User, Store } from 'lucide-react';
 import ProductCard from '@/components/product-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
-import { Product } from '@/types';
+import { Product } from '@/types/product';
 
 const fetchProducts = async (): Promise<Product[]> => {
   const response = await fetch('/api/products');
